@@ -4,10 +4,10 @@ use msg::{ExecuteMsg, InstantiateMsg};
 
 pub mod contract;
 pub mod error;
-// pub mod execute;
+pub mod execute;
 pub mod msg;
-// pub mod query;
-// pub mod state;
+pub mod query;
+pub mod state;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -15,7 +15,7 @@ pub fn instantiate(
     env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
-) -> StdResult<Response> {
+) -> ContractResult<Response> {
     contract::instantiate(deps, env, info, msg)
 }
 
