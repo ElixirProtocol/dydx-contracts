@@ -17,7 +17,7 @@ pub enum QueryMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     AddAdmins { new_admins: Vec<String> },
-    RemoveAdmins,
+    RemoveAdmins { admins_to_remove: Vec<String> },
     CreateVault,
     FreezeVault,
     CloseVault,

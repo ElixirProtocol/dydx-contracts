@@ -39,7 +39,9 @@ pub fn execute(
         ExecuteMsg::AddAdmins { new_admins } => {
             crate::execute::add_admins(deps, info, new_admins).map_err(Into::into)
         }
-        ExecuteMsg::RemoveAdmins => todo!(),
+        ExecuteMsg::RemoveAdmins { admins_to_remove } => {
+            crate::execute::remove_admins(deps, info, admins_to_remove).map_err(Into::into)
+        },
         ExecuteMsg::CreateVault => todo!(),
         ExecuteMsg::FreezeVault => todo!(),
         ExecuteMsg::CloseVault => todo!(),
