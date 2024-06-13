@@ -9,5 +9,5 @@ pub struct State {
     pub owner: Addr,
 }
 
-pub const ADMIN_ADDRS: Item<HashSet<Addr>> = Item::new("admin_addrs");
+pub const TRADER_ADDRS: Item<HashSet<Addr>> = Item::new("trader_addrs");
 pub const STATE: Item<State> = Item::new("state");

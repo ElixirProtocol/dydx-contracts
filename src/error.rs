@@ -9,8 +9,8 @@ pub enum ContractError {
     StdError(#[from] StdError),
     #[error("Provided owner: {owner} does not match the sender")]
     InvalidOwnerDuringInstantiation { owner: Addr },
-    #[error("{sender} does not have permission to modify admins")]
+    #[error("{sender} does not have permission to modify traders")]
     SenderIsNotAdmin { sender: Addr },
-    #[error("Admin perissions cannot be revoked from the contract deployer")]
-    CannotRemoveContractDeployerAsAdmin,
+    #[error("Trade permissions cannot be revoked from the contract deployer")]
+    CannotRemoveContractDeployerAsTrader,
 }

@@ -10,14 +10,14 @@ pub struct InstantiateMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(AdminsResp)]
-    Admins,
+    #[returns(TradersResp)]
+    Traders,
 }
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    AddAdmins { new_admins: Vec<String> },
-    RemoveAdmins { admins_to_remove: Vec<String> },
+    AddTraders { new_traders: Vec<String> },
+    RemoveTraders { traders_to_remove: Vec<String> },
     CreateVault,
     FreezeVault,
     CloseVault,
@@ -31,6 +31,6 @@ pub enum ExecuteMsg {
 }
 
 #[cw_serde]
-pub struct AdminsResp {
-    pub admin_addrs: Vec<Addr>,
+pub struct TradersResp {
+    pub trader_addrs: Vec<Addr>,
 }

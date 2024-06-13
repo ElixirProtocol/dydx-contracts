@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::{
     error::{ContractError, ContractResult},
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::{State, ADMIN_ADDRS, STATE},
+    state::{State, STATE, TRADER_ADDRS},
 };
 use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 
@@ -24,7 +24,7 @@ pub fn instantiate(
 
     let state = State { owner };
     STATE.save(deps.storage, &state)?;
-    ADMIN_ADDRS.save(deps.storage, &admins)?;
+    TRADER_ADDRS.save(deps.storage, &admins)?;
 
     Ok(Response::new().add_attribute("method", "instantiate"))
 }
@@ -36,12 +36,12 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response> {
     match msg {
-        ExecuteMsg::AddAdmins { new_admins } => {
-            crate::execute::add_admins(deps, info, new_admins).map_err(Into::into)
+        ExecuteMsg::AddTraders { new_traders } => {
+            crate::execute::add_traders(deps, info, new_traders).map_err(Into::into)
         }
-        ExecuteMsg::RemoveAdmins { admins_to_remove } => {
-            crate::execute::remove_admins(deps, info, admins_to_remove).map_err(Into::into)
-        },
+        ExecuteMsg::RemoveTraders { traders_to_remove } => {
+            crate::execute::remove_traders(deps, info, traders_to_remove).map_err(Into::into)
+        }
         ExecuteMsg::CreateVault => todo!(),
         ExecuteMsg::FreezeVault => todo!(),
         ExecuteMsg::CloseVault => todo!(),
@@ -58,6 +58,6 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     use QueryMsg::*;
     match msg {
-        Admins => to_json_binary(&crate::query::admins(deps)?),
+        Traders => to_json_binary(&crate::query::admins(deps)?),
     }
 }

@@ -1,10 +1,10 @@
 use cosmwasm_std::{Deps, StdResult};
 
-use crate::{msg::AdminsResp, state::ADMIN_ADDRS};
+use crate::{msg::TradersResp, state::TRADER_ADDRS};
 
-pub fn admins(deps: Deps) -> StdResult<AdminsResp> {
-    let admins = ADMIN_ADDRS.load(deps.storage)?;
-    Ok(AdminsResp {
-        admin_addrs: Vec::from_iter(admins),
+pub fn admins(deps: Deps) -> StdResult<TradersResp> {
+    let admins = TRADER_ADDRS.load(deps.storage)?;
+    Ok(TradersResp {
+        trader_addrs: Vec::from_iter(admins),
     })
 }
