@@ -42,10 +42,11 @@ pub fn execute(
         ExecuteMsg::RemoveTraders { traders_to_remove } => {
             crate::execute::remove_traders(deps, info, traders_to_remove).map_err(Into::into)
         }
-        ExecuteMsg::CreateVault => todo!(),
-        ExecuteMsg::FreezeVault => todo!(),
-        ExecuteMsg::CloseVault => todo!(),
+        ExecuteMsg::CreateVault { perp_id } => {
+            crate::execute::create_vault(deps, info, perp_id).map_err(Into::into)
+        }
         ExecuteMsg::ModifyVault => todo!(),
+        ExecuteMsg::FreezeVault => todo!(),
         ExecuteMsg::CollectFeesFromVault => todo!(),
         ExecuteMsg::DepositIntoVault => todo!(),
         ExecuteMsg::WithdrawFromVault => todo!(),

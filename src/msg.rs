@@ -18,9 +18,8 @@ pub enum QueryMsg {
 pub enum ExecuteMsg {
     AddTraders { new_traders: Vec<String> },
     RemoveTraders { traders_to_remove: Vec<String> },
-    CreateVault,
+    CreateVault { perp_id: u32 },
     FreezeVault,
-    CloseVault,
     ModifyVault,
     CollectFeesFromVault,
     DepositIntoVault,
