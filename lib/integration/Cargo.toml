@@ -1,0 +1,27 @@
+[package]
+name = "elixir-dydx-integration"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "schema"
+path = "src/bin/schema.rs"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+library = []
+
+[dependencies]
+cosmwasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cw-storage-plus = { workspace = true }
+cw-utils = { workspace = true }
+# dydx-cosmwasm = { path = "./submodules/v4-chain/protocol/dydx-cosmwasm" }
+schemars ={ workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+cw-multi-test = "2.0.0"
