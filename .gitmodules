@@ -1,3 +1,0 @@
-[submodule "submodules/v4-chain"]
-	path = submodules/v4-chain
-	url = git@github.com:dydxprotocol/v4-chain.git
