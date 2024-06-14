@@ -1,5 +1,6 @@
 use cosmwasm_std::{Addr, DepsMut, Event, MessageInfo, Response};
 
+use crate::dydx::msg::DydxMsg;
 use crate::dydx::proto_structs::SubaccountId;
 use crate::state::VAULT_SUBACCOUNTS_BY_PERP_ID;
 use crate::{
@@ -115,24 +116,25 @@ pub fn create_vault(
     NUM_VAULTS.save(deps.storage, &(num_vaults + 1))?;
     VAULT_SUBACCOUNTS_BY_PERP_ID.save(deps.storage, perp_id, &subaccount_id)?;
 
-    // // deposit smallest amount of USDC in dYdX contract to create account
-    // let _deposit = DydxMsg::DepositToSubaccount {
-    //     sender: info.sender.to_string(),
-    //     recipient: subaccount_id.clone(),
-    //     asset_id,
-    //     quantums: AMOUNT,
-    // };
+    // deposit smallest amount of USDC in dYdX contract to create account
+    let _deposit = DydxMsg::DepositToSubaccount {
+        sender: info.sender.to_string(),
+        recipient: subaccount_id.clone(),
+        asset_id,
+        quantums: AMOUNT,
+    };
 
-    // // withdraw so that user deposits always start accounting from 0
-    // let _withdraw = DydxMsg::WithdrawFromSubaccount { 
-    //     sender: subaccount_id, 
-    //     recipient: state.owner.to_string(), 
-    //     asset_id, 
-    //     quantums: AMOUNT 
-    // };
+    // withdraw so that user deposits always start accounting from 0
+    let _withdraw = DydxMsg::WithdrawFromSubaccount { 
+        sender: subaccount_id, 
+        recipient: state.owner.to_string(), 
+        asset_id, 
+        quantums: AMOUNT 
+    };
 
     // TODO: figure out dYdX calling convention
     // let x = WasmMsg::Execute { contract_addr: (), msg: (), funds: () } {};
+    // or
     // Ok(Response::new().add_messages([ResponseMsg::Dydx(deposit), ResponseMsg::Dydx(withdraw)]))
 
     Ok(Response::new()
