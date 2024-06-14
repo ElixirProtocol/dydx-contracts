@@ -2,8 +2,8 @@ use cosmwasm_std::CustomQuery;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount};
-use crate::route::DydxRoute;
+use super::{proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount}, route::DydxRoute};
+
 
 /// SeiQueryWrapper is an override of QueryRequest::Custom to access Sei-specific modules
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

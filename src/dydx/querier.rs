@@ -1,8 +1,6 @@
 use cosmwasm_std::{QuerierWrapper, StdResult};
-use crate::proto_structs::PerpetualClobDetails;
-use crate::query::{DydxQuery, DydxQueryWrapper};
-use crate::route::DydxRoute;
-use crate::{MarketPrice, PerpetualClobDetailsResponse, Subaccount, SubaccountResponse, MarketPriceResponse};
+
+use super::{proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount}, query::{DydxQuery, DydxQueryWrapper, MarketPriceResponse, PerpetualClobDetailsResponse, SubaccountResponse}, route::DydxRoute};
 
 /// This is a helper wrapper to easily use our custom queries
 pub struct DydxQuerier<'a> {

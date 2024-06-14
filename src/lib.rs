@@ -8,6 +8,7 @@ pub mod execute;
 pub mod msg;
 pub mod query;
 pub mod state;
+pub mod dydx;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(

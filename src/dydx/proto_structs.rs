@@ -1,7 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use crate::serializable_int::SerializableInt;
 use serde_repr::{Deserialize_repr, Serialize_repr};
+
+use super::serializable_int::SerializableInt;
 
 // TODO(OTE-408): standardize proto compilation
 

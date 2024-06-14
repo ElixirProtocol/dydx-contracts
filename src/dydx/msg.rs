@@ -6,7 +6,7 @@ use cosmwasm_std::{
   CustomMsg,
 };
 
-use crate::SubaccountId;
+use super::proto_structs::SubaccountId;
 
 // TODO(OTE-407): handle issue with `GoodTilOneof` in `PlaceOrder` and `CancelOrder` not serializing correctly
 
