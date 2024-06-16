@@ -1,9 +1,9 @@
 use crate::{
     error::{ContractError, ContractResult},
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::{State, STATE, TRADER_ADDRS},
+    state::{State, Trader, STATE, TRADERS},
 };
-use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 
 pub fn instantiate(
     deps: DepsMut,
@@ -17,7 +17,7 @@ pub fn instantiate(
         return Err(ContractError::InvalidOwnerDuringInstantiation { owner });
     }
 
-    TRADER_ADDRS.save(deps.storage, &owner, &Empty {})?;
+    TRADERS.save(deps.storage, &owner, &Trader { num_markets: 0 })?;
     let state = State { owner };
     STATE.save(deps.storage, &state)?;
 
@@ -37,13 +37,13 @@ pub fn execute(
         ExecuteMsg::RemoveTraders { traders_to_remove } => {
             crate::execute::remove_traders(deps, info, traders_to_remove).map_err(Into::into)
         }
+
         ExecuteMsg::CreateVault { perp_id } => {
             crate::execute::create_vault(deps, info, perp_id).map_err(Into::into)
         }
-        ExecuteMsg::ModifyVault => todo!(),
-        ExecuteMsg::FreezeVault => todo!(),
-        ExecuteMsg::CollectFeesFromVault => todo!(),
-        ExecuteMsg::HaltTrading => todo!(),
+        ExecuteMsg::HaltTrading { perp_id } => todo!(),
+        ExecuteMsg::ChangeVaultTrader => todo!(),
+
         ExecuteMsg::DepositIntoVault => todo!(),
         ExecuteMsg::WithdrawFromVault => todo!(),
         ExecuteMsg::PlaceOrder => todo!(),

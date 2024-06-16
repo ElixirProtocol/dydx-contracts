@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Empty};
+use cosmwasm_std::Addr;
 use cw_storage_plus::{Item, Map};
 
 use crate::dydx::proto_structs::SubaccountId;
@@ -9,7 +9,25 @@ pub struct State {
     pub owner: Addr,
 }
 
-pub const TRADER_ADDRS: Map<&Addr, Empty> = Map::new("trader_addrs");
-pub const NUM_VAULTS: Item<u32> = Item::new("num_vaults");
-pub const VAULT_SUBACCOUNTS_BY_PERP_ID: Map<u32, SubaccountId> = Map::new("vault_subaccounts_by_perp_id");
+#[cw_serde]
+#[derive(Default)]
+pub struct Trader {
+    pub num_markets: u32,
+}
+
+#[cw_serde]
+#[repr(u8)]
+pub enum VaultStatus {
+    Open,
+    Halted,
+}
+
+#[cw_serde]
+pub struct VaultState {
+    pub subaccount_id: SubaccountId,
+    pub status: VaultStatus,
+}
+
+pub const TRADERS: Map<&Addr, Trader> = Map::new("traders");
+pub const VAULT_STATES_BY_PERP_ID: Map<u32, VaultState> = Map::new("vault_states_by_perp_id");
 pub const STATE: Item<State> = Item::new("state");

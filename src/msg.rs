@@ -1,6 +1,8 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Addr;
 
+use crate::state::Trader;
+
 #[cw_serde]
 #[serde(rename_all = "snake_case")]
 pub struct InstantiateMsg {
@@ -19,17 +21,17 @@ pub enum ExecuteMsg {
     AddTraders { new_traders: Vec<String> },
     RemoveTraders { traders_to_remove: Vec<String> },
     CreateVault { perp_id: u32 },
-    FreezeVault,
-    ModifyVault,
-    CollectFeesFromVault,
+    HaltTrading { perp_id: u32 },
+    ChangeVaultTrader,
+    // ModifyVaultFee,
+    // CollectFeesFromVault,
     DepositIntoVault,
     WithdrawFromVault,
     PlaceOrder,
     CancelOrder,
-    HaltTrading,
 }
 
 #[cw_serde]
 pub struct TradersResp {
-    pub trader_addrs: Vec<Addr>,
+    pub traders: Vec<(Addr, Trader)>,
 }

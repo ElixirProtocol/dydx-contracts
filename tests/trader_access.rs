@@ -1,58 +1,14 @@
+mod utils;
+
 #[cfg(test)]
 mod tests {
+    use cw_multi_test::Executor;
+    use elixir_dydx_integration::{
+        msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TradersResp},
+        state::Trader,
+    };
 
-    use cosmwasm_std::{testing::MockApi, Addr, Attribute, Event};
-    use cw_multi_test::{App, AppResponse, ContractWrapper, Executor};
-    use elixir_dydx_integration::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TradersResp};
-
-    fn test_setup() -> (App, u64, Vec<Addr>) {
-        let mut app = App::default();
-
-        let contract_wrapper = ContractWrapper::new(
-            elixir_dydx_integration::contract::execute,
-            elixir_dydx_integration::contract::instantiate,
-            elixir_dydx_integration::contract::query,
-        );
-        let code_id = app.store_code(Box::new(contract_wrapper));
-
-        let mock_api = MockApi::default();
-        let owner = mock_api.addr_make("owner");
-        let user1 = mock_api.addr_make("user1");
-        let user2 = mock_api.addr_make("user2");
-
-        (app, code_id, vec![owner, user1, user2])
-    }
-
-    fn instantiate_contract(app: &mut App, code_id: u64, owner: Addr) -> Addr {
-        app.instantiate_contract(
-            code_id,
-            owner.clone(),
-            &InstantiateMsg {
-                owner: owner.to_string(),
-            },
-            &[],
-            "Contract",
-            None,
-        )
-        .unwrap()
-    }
-
-    fn fetch_attributes(resp: &AppResponse, key: String) -> Vec<Attribute> {
-        let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
-        wasm.attributes
-            .iter()
-            .cloned()
-            .filter(|attr| attr.key == key)
-            .collect()
-    }
-
-    fn fetch_response_events(resp: &AppResponse, event_name: String) -> Vec<Event> {
-        resp.events
-            .iter()
-            .cloned()
-            .filter(|ev| ev.ty == format!("wasm-{event_name}"))
-            .collect()
-    }
+    use crate::utils::{fetch_attributes, fetch_response_events, instantiate_contract, test_setup};
 
     #[test]
     fn can_instantiate_contract() {
@@ -68,7 +24,7 @@ mod tests {
         assert_eq!(
             resp,
             TradersResp {
-                trader_addrs: vec![owner]
+                traders: vec![(owner, Trader { num_markets: 0 })]
             }
         );
     }
@@ -119,18 +75,18 @@ mod tests {
             .query_wasm_smart(app_addr, &QueryMsg::Traders {})
             .unwrap();
 
-        assert!(traders_resp.trader_addrs.len() == 2);
-        assert!(traders_resp.trader_addrs.contains(&owner));
-        assert!(traders_resp.trader_addrs.contains(&user1));
+        assert!(traders_resp.traders.len() == 2);
+        assert!(traders_resp.traders.contains(&(owner, Trader::default())));
+        assert!(traders_resp.traders.contains(&(user1, Trader::default())));
 
         let trader_added_events = fetch_response_events(&add_response, "trader_added".to_string());
         assert!(trader_added_events.len() == 1);
         assert!(trader_added_events[0].ty == "wasm-trader_added");
 
-        let action_attributes = fetch_attributes(&add_response, "action".to_string());
-        assert!(action_attributes.len() == 1);
-        assert!(action_attributes[0].key == "action");
-        assert!(action_attributes[0].value == "add_traders");
+        let method_attributes = fetch_attributes(&add_response, "method".to_string());
+        assert!(method_attributes.len() == 1);
+        assert!(method_attributes[0].key == "method");
+        assert!(method_attributes[0].value == "add_traders");
 
         let count_attributes = fetch_attributes(&add_response, "added_count".to_string());
         assert!(count_attributes.len() == 1);
@@ -184,18 +140,18 @@ mod tests {
             .query_wasm_smart(app_addr, &QueryMsg::Traders {})
             .unwrap();
 
-        assert!(traders_resp.trader_addrs.len() == 3);
-        assert!(traders_resp.trader_addrs.contains(&owner));
-        assert!(traders_resp.trader_addrs.contains(&user1));
-        assert!(traders_resp.trader_addrs.contains(&user2));
+        assert!(traders_resp.traders.len() == 3);
+        assert!(traders_resp.traders.contains(&(owner, Trader::default())));
+        assert!(traders_resp.traders.contains(&(user1, Trader::default())));
+        assert!(traders_resp.traders.contains(&(user2, Trader::default())));
 
         let trader_added_events = fetch_response_events(&add_response, "trader_added".to_string());
         assert!(trader_added_events.len() == 2);
 
-        let action_attributes = fetch_attributes(&add_response, "action".to_string());
-        assert!(action_attributes.len() == 1);
-        assert!(action_attributes[0].key == "action");
-        assert!(action_attributes[0].value == "add_traders");
+        let method_attributes = fetch_attributes(&add_response, "method".to_string());
+        assert!(method_attributes.len() == 1);
+        assert!(method_attributes[0].key == "method");
+        assert!(method_attributes[0].value == "add_traders");
 
         let count_attributes = fetch_attributes(&add_response, "added_count".to_string());
         assert!(count_attributes.len() == 1);
@@ -228,9 +184,13 @@ mod tests {
             .query_wasm_smart(app_addr.clone(), &QueryMsg::Traders {})
             .unwrap();
 
-        assert!(traders_resp.trader_addrs.len() == 2);
-        assert!(traders_resp.trader_addrs.contains(&owner));
-        assert!(traders_resp.trader_addrs.contains(&user1));
+        assert!(traders_resp.traders.len() == 2);
+        assert!(traders_resp
+            .traders
+            .contains(&(owner.clone(), Trader::default())));
+        assert!(traders_resp
+            .traders
+            .contains(&(user1.clone(), Trader::default())));
 
         let add_response2 = app
             .execute_contract(
@@ -246,9 +206,9 @@ mod tests {
             .query_wasm_smart(app_addr, &QueryMsg::Traders {})
             .unwrap();
 
-        assert!(traders_resp2.trader_addrs.len() == 2);
-        assert!(traders_resp2.trader_addrs.contains(&owner));
-        assert!(traders_resp2.trader_addrs.contains(&user1));
+        assert!(traders_resp2.traders.len() == 2);
+        assert!(traders_resp.traders.contains(&(owner, Trader::default())));
+        assert!(traders_resp.traders.contains(&(user1, Trader::default())));
 
         let trader_added_events = fetch_response_events(&add_response2, "trader_added".to_string());
         assert!(trader_added_events.len() == 0);
@@ -335,10 +295,16 @@ mod tests {
             .query_wasm_smart(app_addr.clone(), &QueryMsg::Traders {})
             .unwrap();
 
-        assert!(traders_resp.trader_addrs.len() == 3);
-        assert!(traders_resp.trader_addrs.contains(&owner));
-        assert!(traders_resp.trader_addrs.contains(&user1));
-        assert!(traders_resp.trader_addrs.contains(&user2));
+        assert!(traders_resp.traders.len() == 3);
+        assert!(traders_resp
+            .traders
+            .contains(&(owner.clone(), Trader::default())));
+        assert!(traders_resp
+            .traders
+            .contains(&(user1.clone(), Trader::default())));
+        assert!(traders_resp
+            .traders
+            .contains(&(user2.clone(), Trader::default())));
 
         let remove_response = app
             .execute_contract(
@@ -353,10 +319,10 @@ mod tests {
             fetch_response_events(&remove_response, "trader_removed".to_string());
         assert!(trader_removed_events.len() == 2);
 
-        let action_attributes = fetch_attributes(&remove_response, "action".to_string());
-        assert!(action_attributes.len() == 1);
-        assert!(action_attributes[0].key == "action");
-        assert!(action_attributes[0].value == "remove_traders");
+        let method_attributes = fetch_attributes(&remove_response, "method".to_string());
+        assert!(method_attributes.len() == 1);
+        assert!(method_attributes[0].key == "method");
+        assert!(method_attributes[0].value == "remove_traders");
 
         let count_attributes = fetch_attributes(&remove_response, "removed_count".to_string());
         assert!(count_attributes.len() == 1);
@@ -368,8 +334,10 @@ mod tests {
             .query_wasm_smart(app_addr.clone(), &QueryMsg::Traders {})
             .unwrap();
 
-        assert!(traders_resp.trader_addrs.len() == 1);
-        assert!(traders_resp.trader_addrs.contains(&owner));
+        assert!(traders_resp.traders.len() == 1);
+        assert!(traders_resp
+            .traders
+            .contains(&(owner.clone(), Trader::default())));
     }
 
     #[test]
@@ -398,9 +366,13 @@ mod tests {
             .query_wasm_smart(app_addr.clone(), &QueryMsg::Traders {})
             .unwrap();
 
-        assert!(traders_resp.trader_addrs.len() == 2);
-        assert!(traders_resp.trader_addrs.contains(&owner));
-        assert!(traders_resp.trader_addrs.contains(&user1));
+        assert!(traders_resp.traders.len() == 2);
+        assert!(traders_resp
+            .traders
+            .contains(&(owner.clone(), Trader::default())));
+        assert!(traders_resp
+            .traders
+            .contains(&(user1.clone(), Trader::default())));
 
         let _remove_response = app
             .execute_contract(
@@ -418,8 +390,10 @@ mod tests {
             .query_wasm_smart(app_addr.clone(), &QueryMsg::Traders {})
             .unwrap();
 
-        assert!(traders_resp.trader_addrs.len() == 1);
-        assert!(traders_resp.trader_addrs.contains(&owner));
+        assert!(traders_resp.traders.len() == 1);
+        assert!(traders_resp
+            .traders
+            .contains(&(owner.clone(), Trader::default())));
 
         let remove_response2 = app
             .execute_contract(
@@ -435,8 +409,10 @@ mod tests {
             .query_wasm_smart(app_addr.clone(), &QueryMsg::Traders {})
             .unwrap();
 
-        assert!(traders_resp.trader_addrs.len() == 1);
-        assert!(traders_resp.trader_addrs.contains(&owner));
+        assert!(traders_resp.traders.len() == 1);
+        assert!(traders_resp
+            .traders
+            .contains(&(owner.clone(), Trader::default())));
 
         let trader_added_events =
             fetch_response_events(&remove_response2, "trader_removed".to_string());

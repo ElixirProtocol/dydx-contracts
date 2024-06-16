@@ -11,6 +11,14 @@ pub enum ContractError {
     InvalidOwnerDuringInstantiation { owner: Addr },
     #[error("{sender} does not have permission to modify traders")]
     SenderIsNotOwner { sender: Addr },
+    #[error("{sender} does not have permission to create vaults")]
+    SenderCannotCreateVault { sender: Addr },
+    #[error("{sender} does not have permission to place trades. Only {expected} can place trades  perp_id: {perp_id}")]
+    SenderCannotPlaceTrade {
+        sender: Addr,
+        expected: String,
+        perp_id: u32,
+    },
     #[error("Trade permissions cannot be revoked from the contract deployer")]
     CannotRemoveContractDeployerAsTrader,
 
@@ -18,4 +26,7 @@ pub enum ContractError {
     VaultAlreadyInitialized { perp_id: u32 },
     #[error("Vault with perp_id: {perp_id} is not initialized")]
     VaultNotInitialized { perp_id: u32 },
+
+    #[error("Market with id: {perp_id} is not configured")]
+    InvalidMarket { perp_id: u32 },
 }
