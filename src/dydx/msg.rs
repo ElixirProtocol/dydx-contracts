@@ -72,7 +72,6 @@ pub enum GoodTilOneof {
     GoodTilBlockTime(u32),
 }
 
-
 #[non_exhaustive]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]

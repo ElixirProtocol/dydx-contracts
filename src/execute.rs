@@ -1,6 +1,6 @@
-use cosmwasm_std::{Addr, DepsMut, Event, MessageInfo, Response};
+use cosmwasm_std::{Addr, DepsMut, Empty, Event, MessageInfo, Response};
 
-use crate::dydx::msg::DydxMsg;
+use crate::dydx::msg::{DydxMsg, Order};
 use crate::dydx::proto_structs::SubaccountId;
 use crate::state::VAULT_SUBACCOUNTS_BY_PERP_ID;
 use crate::{
@@ -12,7 +12,6 @@ pub fn add_traders(
     info: MessageInfo,
     new_traders: Vec<String>,
 ) -> ContractResult<Response> {
-    let mut curr_admins = TRADER_ADDRS.load(deps.storage)?;
     let state = STATE.load(deps.storage)?;
 
     if info.sender != state.owner {
@@ -28,13 +27,12 @@ pub fn add_traders(
 
     let mut events = Vec::with_capacity(new_traders.len());
     for new_trader in new_traders {
-        if curr_admins.insert(new_trader.clone()) {
+        if !TRADER_ADDRS.has(deps.storage, &new_trader) {
+            TRADER_ADDRS.save(deps.storage, &new_trader, &Empty {})?;
             events.push(Event::new("trader_added").add_attribute("addr", new_trader))
         }
     }
     let added_count = events.len();
-
-    TRADER_ADDRS.save(deps.storage, &curr_admins)?;
 
     let resp = Response::new()
         .add_events(events)
@@ -49,7 +47,6 @@ pub fn remove_traders(
     info: MessageInfo,
     traders_to_remove: Vec<String>,
 ) -> ContractResult<Response> {
-    let mut curr_admins = TRADER_ADDRS.load(deps.storage)?;
     let state = STATE.load(deps.storage)?;
 
     if traders_to_remove.contains(&state.owner.to_string()) {
@@ -69,13 +66,12 @@ pub fn remove_traders(
 
     let mut events = Vec::with_capacity(traders_to_remove_addrs.len());
     for admin in traders_to_remove_addrs {
-        if curr_admins.remove(&admin) {
+        if TRADER_ADDRS.has(deps.storage, &admin) {
+            TRADER_ADDRS.remove(deps.storage, &admin);
             events.push(Event::new("trader_removed").add_attribute("addr", admin))
         }
     }
     let added_count = events.len();
-
-    TRADER_ADDRS.save(deps.storage, &curr_admins)?;
 
     let resp = Response::new()
         .add_events(events)
@@ -95,7 +91,7 @@ pub fn create_vault(
     let state = STATE.load(deps.storage)?;
     let num_vaults = NUM_VAULTS.load(deps.storage)?;
     const AMOUNT: u64 = 1;
-    let asset_id = 0; // TODO: USDC
+    let asset_id = 0; // TODO: what is USDC on dydx chain?
 
     if info.sender != state.owner {
         return Err(ContractError::SenderIsNotOwner {

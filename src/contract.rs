@@ -1,11 +1,9 @@
-use std::collections::HashSet;
-
 use crate::{
     error::{ContractError, ContractResult},
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
     state::{State, STATE, TRADER_ADDRS},
 };
-use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult};
 
 pub fn instantiate(
     deps: DepsMut,
@@ -19,12 +17,9 @@ pub fn instantiate(
         return Err(ContractError::InvalidOwnerDuringInstantiation { owner });
     }
 
-    let mut admins = HashSet::new();
-    admins.insert(owner.clone());
-
+    TRADER_ADDRS.save(deps.storage, &owner, &Empty {})?;
     let state = State { owner };
     STATE.save(deps.storage, &state)?;
-    TRADER_ADDRS.save(deps.storage, &admins)?;
 
     Ok(Response::new().add_attribute("method", "instantiate"))
 }
@@ -48,11 +43,17 @@ pub fn execute(
         ExecuteMsg::ModifyVault => todo!(),
         ExecuteMsg::FreezeVault => todo!(),
         ExecuteMsg::CollectFeesFromVault => todo!(),
+        ExecuteMsg::HaltTrading => todo!(),
         ExecuteMsg::DepositIntoVault => todo!(),
         ExecuteMsg::WithdrawFromVault => todo!(),
         ExecuteMsg::PlaceOrder => todo!(),
         ExecuteMsg::CancelOrder => todo!(),
-        ExecuteMsg::HaltTrading => todo!(),
+        // ExecuteMsg::PlaceOrder { order } => {
+        //     crate::execute::place_order(deps, info, order).map_err(Into::into)
+        // },
+        // ExecuteMsg::CancelOrder {  order_id, good_til_oneof } => {
+        //     crate::execute::cancel_order(deps, info, order_id, good_til_oneof).map_err(Into::into)
+        // },
     }
 }
 
