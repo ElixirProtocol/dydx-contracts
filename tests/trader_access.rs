@@ -24,7 +24,7 @@ mod tests {
         assert_eq!(
             resp,
             TradersResp {
-                traders: vec![(owner, Trader { num_markets: 0 })]
+                traders: vec![(owner, Trader { markets: vec![] })]
             }
         );
     }

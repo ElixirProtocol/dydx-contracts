@@ -12,14 +12,16 @@ pub struct State {
 #[cw_serde]
 #[derive(Default)]
 pub struct Trader {
-    pub num_markets: u32,
+    /// Index is subaccount #, value is market_id
+    pub markets: Vec<u32>,
 }
+pub const DEFAULT_TRADER_CAPACITY: usize = 8;
 
 #[cw_serde]
 #[repr(u8)]
 pub enum VaultStatus {
     Open,
-    Halted,
+    Frozen,
 }
 
 #[cw_serde]
