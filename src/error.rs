@@ -9,20 +9,20 @@ pub enum ContractError {
     StdError(#[from] StdError),
     #[error("Provided owner: {owner} does not match the sender")]
     InvalidOwnerDuringInstantiation { owner: Addr },
-    #[error("{sender} does not have permission to modify traders")]
-    SenderIsNotOwner { sender: Addr },
+    #[error("{sender} does not have permission to modify trader")]
+    SenderCannotModifyTrader { sender: Addr },
+    #[error("The new trader must be different from the old one")]
+    NewTraderMustNotBeCurrentTrader,
+    #[error("An invalid address was provided: {addr}")]
+    InvalidAddress { addr: String },
     #[error("{sender} does not have permission to create vaults")]
     SenderCannotCreateVault { sender: Addr },
-    #[error("{sender} does not have permission to change the vault trader")]
-    SenderCannotChangeVaultTrader { sender: Addr },
     #[error("{sender} does not have permission to freeze the vault")]
     SenderCannotFreezeVault { sender: Addr },
     #[error("{sender} does not have permission to thaw the vault")]
     SenderCannotThawVault { sender: Addr },
     #[error("Tried to set {new_trader} as trader of vault: {perp_id}, but they do not have permission to trade")]
     NewVaultTraderMustBeApproved { new_trader: Addr, perp_id: u32 },
-    #[error("The new trader of vault: {perp_id} must be different from the old one")]
-    NewVaultTraderMustNotBeCurrentTrader { perp_id: u32 },
     #[error("{sender} does not have permission to place trades. Only {expected} can place trades  perp_id: {perp_id}")]
     SenderCannotPlaceTrade {
         sender: Addr,

@@ -4,90 +4,35 @@ use crate::dydx::msg::{DydxMsg, Order};
 use crate::dydx::proto_structs::SubaccountId;
 use crate::dydx::query::DydxQueryWrapper;
 use crate::error::ContractResult;
-use crate::state::{
-    Trader, VaultState, VaultStatus, DEFAULT_TRADER_CAPACITY, VAULT_STATES_BY_PERP_ID,
-};
-use crate::{
-    error::ContractError,
-    state::{STATE, TRADERS},
-};
+use crate::state::{VaultState, VaultStatus, VAULT_STATES_BY_PERP_ID};
+use crate::{error::ContractError, state::STATE};
 
-pub fn add_traders(
+pub fn set_trader(
     deps: DepsMut<DydxQueryWrapper>,
     info: MessageInfo,
-    new_traders: Vec<String>,
+    new_trader: String,
 ) -> ContractResult<Response<DydxMsg>> {
-    let state = STATE.load(deps.storage)?;
+    let mut state = STATE.load(deps.storage)?;
+    let old_trader_addr = &state.trader;
 
-    if info.sender != state.owner {
-        return Err(ContractError::SenderIsNotOwner {
-            sender: info.sender,
-        });
+    verify_owner_or_trader(&info.sender, &state.owner, &state.trader)?;
+    let new_trader_addr = validate_addr_string(&deps, new_trader.clone())?;
+
+    // new trader must not be old trader
+    if new_trader_addr == info.sender {
+        return Err(ContractError::NewTraderMustNotBeCurrentTrader);
     }
 
-    let new_traders: Vec<Addr> = new_traders
-        .into_iter()
-        .map(|addr| deps.api.addr_validate(&addr).unwrap())
-        .collect();
+    let event = Event::new("trader_set")
+        .add_attribute("old", old_trader_addr.to_string())
+        .add_attribute("new", new_trader);
 
-    let mut events = Vec::with_capacity(new_traders.len());
-    for new_trader in new_traders {
-        if !TRADERS.has(deps.storage, &new_trader) {
-            TRADERS.save(
-                deps.storage,
-                &new_trader,
-                &Trader {
-                    markets: Vec::with_capacity(DEFAULT_TRADER_CAPACITY),
-                },
-            )?;
-            events.push(Event::new("trader_added").add_attribute("addr", new_trader))
-        }
-    }
-    let added_count = events.len();
+    state.trader = new_trader_addr;
+    STATE.save(deps.storage, &state)?;
 
     let resp = Response::new()
-        .add_events(events)
-        .add_attribute("method", "add_traders")
-        .add_attribute("added_count", added_count.to_string());
-
-    Ok(resp)
-}
-
-pub fn remove_traders(
-    deps: DepsMut<DydxQueryWrapper>,
-    info: MessageInfo,
-    traders_to_remove: Vec<String>,
-) -> ContractResult<Response<DydxMsg>> {
-    let state = STATE.load(deps.storage)?;
-
-    if traders_to_remove.contains(&state.owner.to_string()) {
-        return Err(ContractError::CannotRemoveContractDeployerAsTrader);
-    }
-
-    if info.sender != state.owner {
-        return Err(ContractError::SenderIsNotOwner {
-            sender: info.sender,
-        });
-    }
-
-    let traders_to_remove_addrs: Vec<Addr> = traders_to_remove
-        .into_iter()
-        .map(|addr| deps.api.addr_validate(&addr).unwrap())
-        .collect();
-
-    let mut events = Vec::with_capacity(traders_to_remove_addrs.len());
-    for admin in traders_to_remove_addrs {
-        if TRADERS.has(deps.storage, &admin) {
-            TRADERS.remove(deps.storage, &admin);
-            events.push(Event::new("trader_removed").add_attribute("addr", admin))
-        }
-    }
-    let added_count = events.len();
-
-    let resp = Response::new()
-        .add_events(events)
-        .add_attribute("method", "remove_traders")
-        .add_attribute("removed_count", added_count.to_string());
+        .add_event(event)
+        .add_attribute("method", "set_trader");
 
     Ok(resp)
 }
@@ -103,17 +48,12 @@ pub fn create_vault(
     const AMOUNT: u64 = 1;
     const USDC_ID: u32 = 0;
 
-    // TODO: fix
-    if !TRADERS.has(deps.storage, &info.sender) {
-        return Err(ContractError::SenderCannotCreateVault {
-            sender: info.sender,
-        });
-    }
+    let state = STATE.load(deps.storage)?;
+    verify_owner_or_trader(&info.sender, &state.owner, &state.trader)?;
 
     if VAULT_STATES_BY_PERP_ID.has(deps.storage, perp_id) {
         return Err(ContractError::VaultAlreadyInitialized { perp_id });
     }
-
 
     let subaccount_id = SubaccountId {
         owner: env.contract.address.to_string(),
@@ -147,10 +87,9 @@ pub fn create_vault(
     // TODO: more events
 
     Ok(Response::new()
-    .add_attribute("method", "create_vault")
-    .add_message(deposit)
-    .add_message(withdraw)
-)
+        .add_attribute("method", "create_vault")
+        .add_message(deposit)
+        .add_message(withdraw))
 }
 
 /// Freezes the vault (prevents placing any orders). For now, deposits/withdrawals and cancelling orders are allowed.
@@ -223,75 +162,6 @@ pub fn thaw_vault(
         .add_event(event))
 }
 
-/// Changes the vault trader. Must be called by the current trader.
-/// This function requires that the dYdX subaccount does not have any open orders
-/// and that the vault is currently frozen. The vault will remain frozen after this function.
-pub fn change_vault_trader(
-    deps: DepsMut<DydxQueryWrapper>,
-    env: Env,
-    info: MessageInfo,
-    perp_id: u32,
-    new_trader_str: String,
-) -> ContractResult<Response<DydxMsg>> {
-    let new_trader_addr = deps.api.addr_validate(&new_trader_str)?;
-    // check new trader can trade
-    if !TRADERS.has(deps.storage, &new_trader_addr) {
-        return Err(ContractError::NewVaultTraderMustBeApproved {
-            new_trader: new_trader_addr,
-            perp_id,
-        });
-    }
-
-    // check vault initialized
-    if !VAULT_STATES_BY_PERP_ID.has(deps.storage, perp_id) {
-        return Err(ContractError::VaultNotInitialized { perp_id });
-    }
-
-    let vault_state = VAULT_STATES_BY_PERP_ID.load(deps.storage, perp_id)?;
-    let old_trader_addr = deps.api.addr_validate(&vault_state.subaccount_id.owner)?;
-    // check sender is the current trader
-    if old_trader_addr != info.sender {
-        return Err(ContractError::SenderCannotChangeVaultTrader {
-            sender: info.sender,
-        });
-    }
-    // new trader must not be old trader
-    if new_trader_addr == info.sender {
-        return Err(ContractError::NewVaultTraderMustNotBeCurrentTrader { perp_id });
-    }
-
-
-    // TODO:
-    // assert!(asset_positions only USDC
-    // assert!(perpetual_positions.len() == 0) or there is nothing in there
-
-    // TODO: fix
-    // update the new trader
-    let mut new_trader = TRADERS.load(deps.storage, &new_trader_addr)?;
-    let subaccount_number = new_trader.markets.len() as u32;
-    new_trader.markets.push(perp_id);
-    TRADERS.save(deps.storage, &new_trader_addr, &new_trader)?;
-
-    // update the vault
-    let subaccount_id = SubaccountId {
-        owner: env.contract.address.to_string(),
-        number: subaccount_number,
-    };
-    let vault_state = VaultState {
-        subaccount_id: subaccount_id.clone(),
-        status: VaultStatus::Frozen,
-    };
-    VAULT_STATES_BY_PERP_ID.save(deps.storage, perp_id, &vault_state)?;
-
-    let event = Event::new("vault_trader_update")
-        .add_attribute("old", old_trader_addr.to_string())
-        .add_attribute("new", new_trader_str);
-
-    Ok(Response::new()
-        .add_attribute("method", "change_vault_trader")
-        .add_event(event))
-}
-
 /// Places an order on dYdX.
 /// Requires the sender to have trader permissions and an existing vault that corresponds to the dYdX market.
 pub fn place_order(
@@ -330,7 +200,7 @@ pub fn place_order(
 }
 
 // /// Normal deposit
-// pub fn a( 
+// pub fn a(
 //     _deps: DepsMut<DydxQueryWrapper>,
 //     _env: Env,
 //     info: MessageInfo,
@@ -351,14 +221,13 @@ pub fn place_order(
 //         quantums: AMOUNT,
 //     };
 
-
 //     Ok(Response::new()
 //     .add_attribute("method", "create_vault")
 //     .add_message(deposit))
 // }
 
 // /// Smart contract deposit
-// pub fn b( 
+// pub fn b(
 //     _deps: DepsMut<DydxQueryWrapper>,
 //     env: Env,
 //     info: MessageInfo,
@@ -379,14 +248,13 @@ pub fn place_order(
 //         quantums: AMOUNT,
 //     };
 
-
 //     Ok(Response::new()
 //     .add_attribute("method", "create_vault")
 //     .add_message(deposit))
 // }
 
 // ///  deposit
-// pub fn c( 
+// pub fn c(
 //     _deps: DepsMut<DydxQueryWrapper>,
 //     env: Env,
 //     info: MessageInfo,
@@ -407,14 +275,13 @@ pub fn place_order(
 //         quantums: AMOUNT,
 //     };
 
-
 //     Ok(Response::new()
 //     .add_attribute("method", "deposit_example")
 //     .add_message(deposit))
 // }
 
 // /// withdraw
-// pub fn d( 
+// pub fn d(
 //     _deps: DepsMut<DydxQueryWrapper>,
 //     env: Env,
 //     info: MessageInfo,
@@ -439,3 +306,23 @@ pub fn place_order(
 //     .add_attribute("method", "withdraw_example")
 //     .add_message(withdraw))
 // }
+
+fn verify_owner_or_trader(sender: &Addr, owner: &Addr, trader: &Addr) -> ContractResult<()> {
+    if sender != owner && sender != trader {
+        return Err(ContractError::SenderCannotModifyTrader {
+            sender: sender.clone(),
+        });
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_addr_string(
+    deps: &DepsMut<DydxQueryWrapper>,
+    addr_string: String,
+) -> ContractResult<Addr> {
+    match deps.api.addr_validate(&addr_string) {
+        Ok(a) => Ok(a),
+        Err(_) => return Err(ContractError::InvalidAddress { addr: addr_string }),
+    }
+}

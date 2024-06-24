@@ -2,15 +2,15 @@ use cosmwasm_std::{Deps, StdResult};
 
 use crate::{
     dydx::{querier::DydxQuerier, query::DydxQueryWrapper},
-    msg::{DydxSubaccountResp, TradersResp, VaultStateResp},
-    state::{TRADERS, VAULT_STATES_BY_PERP_ID},
+    msg::{DydxSubaccountResp, TraderResp, VaultStateResp},
+    state::{STATE, VAULT_STATES_BY_PERP_ID},
 };
 
-pub fn admins(deps: Deps<DydxQueryWrapper>) -> StdResult<TradersResp> {
-    let traders: Result<Vec<_>, _> = TRADERS
-        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-        .collect();
-    Ok(TradersResp { traders: traders? })
+pub fn trader(deps: Deps<DydxQueryWrapper>) -> StdResult<TraderResp> {
+    let state = STATE.load(deps.storage)?;
+    Ok(TraderResp {
+        trader: state.trader,
+    })
 }
 
 pub fn vault_state(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<VaultStateResp> {
@@ -22,15 +22,12 @@ pub fn vault_state(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<Vaul
     })
 }
 
-pub fn dydx_subaccount(deps: Deps<DydxQueryWrapper>, owner: String, number: u32) -> StdResult<DydxSubaccountResp> {
+pub fn dydx_subaccount(
+    deps: Deps<DydxQueryWrapper>,
+    owner: String,
+    number: u32,
+) -> StdResult<DydxSubaccountResp> {
     let querier = DydxQuerier::new(&deps.querier);
-    let subaccount = querier
-        .query_subaccount(
-            owner.clone(),
-            number,
-        )?
-        .subaccount;
-    Ok(DydxSubaccountResp {
-        subaccount
-    })
+    let subaccount = querier.query_subaccount(owner.clone(), number)?.subaccount;
+    Ok(DydxSubaccountResp { subaccount })
 }
