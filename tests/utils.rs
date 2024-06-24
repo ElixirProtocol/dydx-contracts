@@ -1,14 +1,14 @@
-use cosmwasm_std::{testing::MockApi, Addr, Attribute, Empty, Event};
+use cosmwasm_std::{testing::MockApi, Addr, Attribute, Event};
 use cw_multi_test::{custom_app, AppResponse, BasicApp, Contract, ContractWrapper, Executor};
-use elixir_dydx_integration::{dydx::query::DydxQueryWrapper, msg::InstantiateMsg};
+use elixir_dydx_integration::{dydx::{msg::DydxMsg, query::DydxQueryWrapper}, msg::InstantiateMsg};
 
-pub fn test_setup() -> (BasicApp<Empty, DydxQueryWrapper>, u64, Vec<Addr>) {
+pub fn test_setup() -> (BasicApp<DydxMsg, DydxQueryWrapper>, u64, Vec<Addr>) {
     let contract = ContractWrapper::new(
         elixir_dydx_integration::contract::execute,
         elixir_dydx_integration::contract::instantiate,
         elixir_dydx_integration::contract::query,
     );
-    let b: Box<dyn Contract<_, DydxQueryWrapper>> = Box::new(contract);
+    let b: Box<dyn Contract<DydxMsg, DydxQueryWrapper>> = Box::new(contract);
     let mut app = custom_app::<_, DydxQueryWrapper, _>(|_, _, _| {});
     let code_id = app.store_code(b);
 
@@ -21,7 +21,7 @@ pub fn test_setup() -> (BasicApp<Empty, DydxQueryWrapper>, u64, Vec<Addr>) {
 }
 
 pub fn instantiate_contract(
-    app: &mut BasicApp<Empty, DydxQueryWrapper>,
+    app: &mut BasicApp<DydxMsg, DydxQueryWrapper>,
     code_id: u64,
     owner: Addr,
 ) -> Addr {

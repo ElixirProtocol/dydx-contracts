@@ -1,5 +1,5 @@
 use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
-use dydx::query::DydxQueryWrapper;
+use dydx::{msg::DydxMsg, query::DydxQueryWrapper};
 use error::ContractResult;
 use msg::{ExecuteMsg, InstantiateMsg};
 
@@ -17,7 +17,7 @@ pub fn instantiate(
     env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
-) -> ContractResult<Response> {
+) -> ContractResult<Response<DydxMsg>> {
     contract::instantiate(deps, env, info, msg)
 }
 
@@ -32,6 +32,6 @@ pub fn execute(
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> ContractResult<Response> {
+) -> ContractResult<Response<DydxMsg>> {
     contract::execute(deps, env, info, msg)
 }

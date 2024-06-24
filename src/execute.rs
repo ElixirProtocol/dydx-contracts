@@ -1,4 +1,4 @@
-use cosmwasm_std::{Addr, DepsMut, Event, MessageInfo, Response};
+use cosmwasm_std::{to_json_binary, Addr, DepsMut, Env, Event, MessageInfo, Response, WasmMsg};
 
 use crate::dydx::msg::{DydxMsg, Order};
 use crate::dydx::proto_structs::SubaccountId;
@@ -16,7 +16,7 @@ pub fn add_traders(
     deps: DepsMut<DydxQueryWrapper>,
     info: MessageInfo,
     new_traders: Vec<String>,
-) -> ContractResult<Response> {
+) -> ContractResult<Response<DydxMsg>> {
     let state = STATE.load(deps.storage)?;
 
     if info.sender != state.owner {
@@ -57,7 +57,7 @@ pub fn remove_traders(
     deps: DepsMut<DydxQueryWrapper>,
     info: MessageInfo,
     traders_to_remove: Vec<String>,
-) -> ContractResult<Response> {
+) -> ContractResult<Response<DydxMsg>> {
     let state = STATE.load(deps.storage)?;
 
     if traders_to_remove.contains(&state.owner.to_string()) {
@@ -96,12 +96,14 @@ pub fn remove_traders(
 /// The sender must be a pre-approved trader. The sender will become the only eligible trader for the market.
 pub fn create_vault(
     deps: DepsMut<DydxQueryWrapper>,
+    env: Env,
     info: MessageInfo,
     perp_id: u32,
-) -> ContractResult<Response> {
+) -> ContractResult<Response<DydxMsg>> {
     const AMOUNT: u64 = 1;
-    const USDC_ID: u32 = 1;
+    const USDC_ID: u32 = 0;
 
+    // TODO: fix
     if !TRADERS.has(deps.storage, &info.sender) {
         return Err(ContractError::SenderCannotCreateVault {
             sender: info.sender,
@@ -112,16 +114,10 @@ pub fn create_vault(
         return Err(ContractError::VaultAlreadyInitialized { perp_id });
     }
 
-    // update # of markets on trader
-    let mut trader = TRADERS.load(deps.storage, &info.sender)?;
-    let subaccount_number = trader.markets.len() as u32;
-
-    trader.markets.push(perp_id);
-    TRADERS.save(deps.storage, &info.sender, &trader)?;
 
     let subaccount_id = SubaccountId {
-        owner: info.sender.to_string(),
-        number: subaccount_number,
+        owner: env.contract.address.to_string(),
+        number: perp_id,
     };
 
     let vault_state = VaultState {
@@ -133,7 +129,7 @@ pub fn create_vault(
     VAULT_STATES_BY_PERP_ID.save(deps.storage, perp_id, &vault_state)?;
 
     // deposit smallest amount of USDC in dYdX contract to create account
-    let _deposit = DydxMsg::DepositToSubaccount {
+    let deposit = DydxMsg::DepositToSubaccount {
         sender: info.sender.to_string(),
         recipient: subaccount_id.clone(),
         asset_id: USDC_ID,
@@ -141,21 +137,20 @@ pub fn create_vault(
     };
 
     // withdraw so that user deposits always start accounting from 0
-    let _withdraw = DydxMsg::WithdrawFromSubaccount {
+    let withdraw = DydxMsg::WithdrawFromSubaccount {
         sender: subaccount_id,
         recipient: info.sender.to_string(),
         asset_id: USDC_ID,
         quantums: AMOUNT,
     };
 
-    // TODO: figure out dYdX calling convention
-    // let x = WasmMsg::Execute { contract_addr: (), msg: (), funds: () } {};
-    // or
-    // Ok(Response::new().add_messages([ResponseMsg::Dydx(deposit), ResponseMsg::Dydx(withdraw)]))
-
     // TODO: more events
 
-    Ok(Response::new().add_attribute("method", "create_vault"))
+    Ok(Response::new()
+    .add_attribute("method", "create_vault")
+    .add_message(deposit)
+    .add_message(withdraw)
+)
 }
 
 /// Freezes the vault (prevents placing any orders). For now, deposits/withdrawals and cancelling orders are allowed.
@@ -164,7 +159,7 @@ pub fn freeze_vault(
     deps: DepsMut<DydxQueryWrapper>,
     info: MessageInfo,
     perp_id: u32,
-) -> ContractResult<Response> {
+) -> ContractResult<Response<DydxMsg>> {
     if !VAULT_STATES_BY_PERP_ID.has(deps.storage, perp_id) {
         return Err(ContractError::VaultNotInitialized { perp_id });
     }
@@ -199,7 +194,7 @@ pub fn thaw_vault(
     deps: DepsMut<DydxQueryWrapper>,
     info: MessageInfo,
     perp_id: u32,
-) -> ContractResult<Response> {
+) -> ContractResult<Response<DydxMsg>> {
     if !VAULT_STATES_BY_PERP_ID.has(deps.storage, perp_id) {
         return Err(ContractError::VaultNotInitialized { perp_id });
     }
@@ -233,10 +228,11 @@ pub fn thaw_vault(
 /// and that the vault is currently frozen. The vault will remain frozen after this function.
 pub fn change_vault_trader(
     deps: DepsMut<DydxQueryWrapper>,
+    env: Env,
     info: MessageInfo,
     perp_id: u32,
     new_trader_str: String,
-) -> ContractResult<Response> {
+) -> ContractResult<Response<DydxMsg>> {
     let new_trader_addr = deps.api.addr_validate(&new_trader_str)?;
     // check new trader can trade
     if !TRADERS.has(deps.storage, &new_trader_addr) {
@@ -264,24 +260,12 @@ pub fn change_vault_trader(
         return Err(ContractError::NewVaultTraderMustNotBeCurrentTrader { perp_id });
     }
 
-    // vault must be frozen
-    if vault_state.status != VaultStatus::Frozen {
-        return Err(ContractError::VaultMustBeHaltedToChangeTrader {});
-    }
-    //TODO: enable queries to dYdX
-    // // There must be no open orders (all USDC)
-    // let querier = DydxQuerier::new(&deps.querier);
-    // let _subaccount = querier
-    //     .query_subaccount(
-    //         vault_state.subaccount_id.owner.clone(),
-    //         vault_state.subaccount_id.number,
-    //     )?
-    //     .subaccount;
 
     // TODO:
     // assert!(asset_positions only USDC
     // assert!(perpetual_positions.len() == 0) or there is nothing in there
 
+    // TODO: fix
     // update the new trader
     let mut new_trader = TRADERS.load(deps.storage, &new_trader_addr)?;
     let subaccount_number = new_trader.markets.len() as u32;
@@ -290,7 +274,7 @@ pub fn change_vault_trader(
 
     // update the vault
     let subaccount_id = SubaccountId {
-        owner: new_trader_str.clone(),
+        owner: env.contract.address.to_string(),
         number: subaccount_number,
     };
     let vault_state = VaultState {
@@ -298,24 +282,6 @@ pub fn change_vault_trader(
         status: VaultStatus::Frozen,
     };
     VAULT_STATES_BY_PERP_ID.save(deps.storage, perp_id, &vault_state)?;
-
-    // // withdraw from old trader's subaccount
-    // let _withdraw = DydxMsg::WithdrawFromSubaccount {
-    //     sender: subaccount_id,
-    //     recipient: info.sender.to_string(),
-    //     asset_id: USDC_ID,
-    //     quantums: AMOUNT,
-    // };
-
-    // can I use transfer instead?
-
-    // // deposit into new trader's subaccount
-    // let _deposit = DydxMsg::DepositToSubaccount {
-    //     sender: info.sender.to_string(),
-    //     recipient: subaccount_id.clone(),
-    //     asset_id: USDC_ID,
-    //     quantums: AMOUNT,
-    // };
 
     let event = Event::new("vault_trader_update")
         .add_attribute("old", old_trader_addr.to_string())
@@ -332,7 +298,7 @@ pub fn place_order(
     deps: DepsMut<DydxQueryWrapper>,
     info: MessageInfo,
     order: Order,
-) -> ContractResult<Response> {
+) -> ContractResult<Response<DydxMsg>> {
     // // validate market
     // if !VAULT_STATES_BY_PERP_ID.has(deps.storage, order.order_id.clob_pair_id) {
     //     return Err(ContractError::InvalidMarket {
@@ -362,3 +328,114 @@ pub fn place_order(
     // .add_events(events)
     // .add_attribute("method", "place_order"))
 }
+
+// /// Normal deposit
+// pub fn a( 
+//     _deps: DepsMut<DydxQueryWrapper>,
+//     _env: Env,
+//     info: MessageInfo,
+//     perp_id: u32,
+// ) -> ContractResult<Response<DydxMsg>> {
+//     const AMOUNT: u64 = 1;
+//     const USDC_ID: u32 = 0;
+
+//     let subaccount_id = SubaccountId {
+//         owner: info.sender.to_string(),
+//         number: perp_id,
+//     };
+
+//     let deposit = DydxMsg::DepositToSubaccount {
+//         sender: info.sender.to_string(),
+//         recipient: subaccount_id.clone(),
+//         asset_id: USDC_ID,
+//         quantums: AMOUNT,
+//     };
+
+
+//     Ok(Response::new()
+//     .add_attribute("method", "create_vault")
+//     .add_message(deposit))
+// }
+
+// /// Smart contract deposit
+// pub fn b( 
+//     _deps: DepsMut<DydxQueryWrapper>,
+//     env: Env,
+//     info: MessageInfo,
+//     perp_id: u32,
+// ) -> ContractResult<Response<DydxMsg>> {
+//     const AMOUNT: u64 = 1;
+//     const USDC_ID: u32 = 0;
+
+//     let subaccount_id = SubaccountId {
+//         owner: env.contract.address.to_string(), // Why can't the contract have a subaccount?
+//         number: perp_id,
+//     };
+
+//     let deposit = DydxMsg::DepositToSubaccount {
+//         sender: info.sender.to_string(),
+//         recipient: subaccount_id.clone(),
+//         asset_id: USDC_ID,
+//         quantums: AMOUNT,
+//     };
+
+
+//     Ok(Response::new()
+//     .add_attribute("method", "create_vault")
+//     .add_message(deposit))
+// }
+
+// ///  deposit
+// pub fn c( 
+//     _deps: DepsMut<DydxQueryWrapper>,
+//     env: Env,
+//     info: MessageInfo,
+//     perp_id: u32,
+// ) -> ContractResult<Response<DydxMsg>> {
+//     const AMOUNT: u64 = 1;
+//     const USDC_ID: u32 = 0;
+
+//     let subaccount_id = SubaccountId {
+//         owner: env.contract.address.to_string(),
+//         number: perp_id,
+//     };
+
+//     let deposit = DydxMsg::DepositToSubaccount {
+//         sender: info.sender.to_string(),
+//         recipient: subaccount_id.clone(),
+//         asset_id: USDC_ID,
+//         quantums: AMOUNT,
+//     };
+
+
+//     Ok(Response::new()
+//     .add_attribute("method", "deposit_example")
+//     .add_message(deposit))
+// }
+
+// /// withdraw
+// pub fn d( 
+//     _deps: DepsMut<DydxQueryWrapper>,
+//     env: Env,
+//     info: MessageInfo,
+//     perp_id: u32,
+// ) -> ContractResult<Response<DydxMsg>> {
+//     const AMOUNT: u64 = 1;
+//     const USDC_ID: u32 = 0;
+
+//     let subaccount_id = SubaccountId {
+//         owner: env.contract.address.to_string(),
+//         number: perp_id,
+//     };
+
+//     let withdraw = DydxMsg::WithdrawFromSubaccount {
+//         sender: subaccount_id,
+//         recipient: info.sender.to_string(),
+//         asset_id: USDC_ID,
+//         quantums: AMOUNT,
+//     };
+
+//     Ok(Response::new()
+//     .add_attribute("method", "withdraw_example")
+//     .add_message(withdraw))
+// }
