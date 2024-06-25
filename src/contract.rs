@@ -46,7 +46,9 @@ pub fn execute(
         ExecuteMsg::ThawVault { perp_id } => {
             crate::execute::thaw_vault(deps, info, perp_id).map_err(Into::into)
         }
-        ExecuteMsg::DepositIntoVault => todo!(),
+        ExecuteMsg::DepositIntoVault { amount, perp_id } => {
+            crate::execute::deposit_into_vault(deps, env, info, perp_id, amount).map_err(Into::into)
+        }
         ExecuteMsg::WithdrawFromVault => todo!(),
         ExecuteMsg::PlaceOrder => todo!(),
         ExecuteMsg::CancelOrder => todo!(),
@@ -64,13 +66,19 @@ pub fn execute(
     }
 }
 
-pub fn query(deps: Deps<DydxQueryWrapper>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<DydxQueryWrapper>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     use QueryMsg::*;
     match msg {
         Trader => to_json_binary(&crate::query::trader(deps)?),
         VaultState { perp_id } => to_json_binary(&crate::query::vault_state(deps, perp_id)?),
+        VaultOwnership { perp_id, depositor } => to_json_binary(&crate::query::vault_ownership(
+            deps, env, perp_id, depositor,
+        )?),
         DydxSubaccount { owner, number } => {
             to_json_binary(&crate::query::dydx_subaccount(deps, owner, number)?)
+        },
+        Other { perp_id } => {
+            to_json_binary(&crate::query::other(deps, perp_id)?)
         }
     }
 }

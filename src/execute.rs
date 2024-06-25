@@ -1,11 +1,20 @@
-use cosmwasm_std::{to_json_binary, Addr, DepsMut, Env, Event, MessageInfo, Response, WasmMsg};
+use cosmwasm_std::{
+    to_json_binary, Addr, Decimal, DepsMut, Env, Event, MessageInfo, Response, StdResult, Uint128,
+    WasmMsg,
+};
+use cw20_base::state::{MinterData, TokenInfo};
 
 use crate::dydx::msg::{DydxMsg, Order};
 use crate::dydx::proto_structs::SubaccountId;
+use crate::dydx::querier::{self, DydxQuerier};
 use crate::dydx::query::DydxQueryWrapper;
 use crate::error::ContractResult;
-use crate::state::{VaultState, VaultStatus, VAULT_STATES_BY_PERP_ID};
+use crate::query::{lp_token_info, query_validated_dydx_position};
+use crate::state::{VaultState, VaultStatus, LP_BALANCES, LP_TOKENS, VAULT_STATES_BY_PERP_ID};
 use crate::{error::ContractError, state::STATE};
+
+pub const USDC_ID: u32 = 0;
+pub const USDC_DENOM: u32 = 6;
 
 pub fn set_trader(
     deps: DepsMut<DydxQueryWrapper>,
@@ -38,7 +47,6 @@ pub fn set_trader(
 }
 
 /// Creates a vault and the associated dYdX subaccount required for trading.
-/// The sender must be a pre-approved trader. The sender will become the only eligible trader for the market.
 pub fn create_vault(
     deps: DepsMut<DydxQueryWrapper>,
     env: Env,
@@ -46,7 +54,6 @@ pub fn create_vault(
     perp_id: u32,
 ) -> ContractResult<Response<DydxMsg>> {
     const AMOUNT: u64 = 1;
-    const USDC_ID: u32 = 0;
 
     let state = STATE.load(deps.storage)?;
     verify_owner_or_trader(&info.sender, &state.owner, &state.trader)?;
@@ -55,10 +62,7 @@ pub fn create_vault(
         return Err(ContractError::VaultAlreadyInitialized { perp_id });
     }
 
-    let subaccount_id = SubaccountId {
-        owner: env.contract.address.to_string(),
-        number: perp_id,
-    };
+    let subaccount_id = get_contract_subaccount_id(&env, perp_id);
 
     let vault_state = VaultState {
         subaccount_id: subaccount_id.clone(),
@@ -67,6 +71,20 @@ pub fn create_vault(
 
     // save new vault
     VAULT_STATES_BY_PERP_ID.save(deps.storage, perp_id, &vault_state)?;
+
+    // create LP token using cw20-base format
+    let data = TokenInfo {
+        name: format!("Elixir LP Token: dYdX-{perp_id}"),
+        symbol: format!("ELXR-LP-dYdX-{perp_id}"),
+        decimals: USDC_DENOM as u8,
+        total_supply: Uint128::zero(),
+        // set self as minter, so we can properly execute mint and burn
+        mint: Some(MinterData {
+            minter: env.contract.address,
+            cap: None,
+        }),
+    };
+    LP_TOKENS.save(deps.storage, perp_id, &data)?;
 
     // deposit smallest amount of USDC in dYdX contract to create account
     let deposit = DydxMsg::DepositToSubaccount {
@@ -160,6 +178,60 @@ pub fn thaw_vault(
     Ok(Response::new()
         .add_attribute("method", "thaw_vault")
         .add_event(event))
+}
+
+/// Allows a user to deposit into the market-making vault.
+///
+pub fn deposit_into_vault(
+    deps: DepsMut<DydxQueryWrapper>,
+    env: Env,
+    info: MessageInfo,
+    perp_id: u32,
+    amount: u64,
+) -> ContractResult<Response<DydxMsg>> {
+    let subaccount_id = get_contract_subaccount_id(&env, perp_id);
+    let querier = DydxQuerier::new(&deps.querier);
+
+    // assert that user is depositing USDC
+
+    // assert vault exists
+
+    let vp = query_validated_dydx_position(&querier, &env, perp_id)?;
+    let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
+    let deposit_value = Decimal::from_atomics(amount, USDC_DENOM).unwrap();
+    let lp_token_info = lp_token_info(deps.as_ref(), perp_id)?;
+
+    // calculate the new deposit's share of total value
+    // TODO: longer comment, explain math
+    let share_value_fraction = deposit_value / (deposit_value + subaccount_value);
+    let outstanding_tokens = Decimal::from_atomics(lp_token_info.total_supply, USDC_DENOM).unwrap();
+    let new_tokens = if share_value_fraction == Decimal::one() {
+        Uint128::new(amount as u128)
+    } else {
+        let token_amt_decimal =
+            (share_value_fraction * outstanding_tokens) / (Decimal::one() - share_value_fraction);
+            token_amt_decimal.to_uint_floor()
+    };
+
+    // mint tokens to depositor
+    let sub_info = MessageInfo {
+        sender: env.contract.address.clone(),
+        funds: vec![],
+    };
+    do_mint(deps, sub_info, perp_id, info.sender.to_string(), new_tokens.into()).unwrap();
+
+    let deposit = DydxMsg::DepositToSubaccount {
+        sender: info.sender.to_string(),
+        recipient: subaccount_id.clone(),
+        asset_id: USDC_ID,
+        quantums: amount,
+    };
+
+    // TODO: more events
+
+    Ok(Response::new()
+        .add_attribute("method", "deposit_into_vault")
+        .add_message(deposit))
 }
 
 /// Places an order on dYdX.
@@ -325,4 +397,52 @@ fn validate_addr_string(
         Ok(a) => Ok(a),
         Err(_) => return Err(ContractError::InvalidAddress { addr: addr_string }),
     }
+}
+
+fn get_contract_subaccount_id(env: &Env, perp_id: u32) -> SubaccountId {
+    SubaccountId {
+        owner: env.contract.address.to_string(),
+        number: perp_id,
+    }
+}
+
+fn do_mint(
+    deps: DepsMut<DydxQueryWrapper>,
+    info: MessageInfo,
+    perp_id: u32,
+    recipient: String,
+    amount: Uint128,
+) -> ContractResult<()> {
+    let mut config = LP_TOKENS
+        .may_load(deps.storage, perp_id)?
+        .ok_or(ContractError::Unauthorized {})?;
+
+    if config
+        .mint
+        .as_ref()
+        .ok_or(ContractError::Unauthorized {})?
+        .minter
+        != info.sender
+    {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    // update supply and enforce cap
+    config.total_supply += amount;
+    if let Some(limit) = config.get_cap() {
+        if config.total_supply > limit {
+            return Err(ContractError::CannotExceedCap {});
+        }
+    }
+    LP_TOKENS.save(deps.storage, perp_id, &config)?;
+
+    // add amount to recipient balance
+    let rcpt_addr = deps.api.addr_validate(&recipient)?;
+    LP_BALANCES.update(
+        deps.storage,
+        (perp_id, &rcpt_addr),
+        |balance: Option<Uint128>| -> StdResult<_> { Ok(balance.unwrap_or_default() + amount) },
+    )?;
+
+    Ok(())
 }

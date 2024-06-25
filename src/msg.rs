@@ -1,8 +1,8 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Addr;
+use cosmwasm_std::{Addr, Decimal, Uint128};
 
 use crate::{
-    dydx::proto_structs::{Subaccount, SubaccountId},
+    dydx::{proto_structs::{Subaccount, SubaccountId}, query::PerpetualClobDetailsResponse},
     state::VaultStatus,
 };
 
@@ -19,8 +19,12 @@ pub enum QueryMsg {
     Trader,
     #[returns(VaultStateResp)]
     VaultState { perp_id: u32 },
+    #[returns(VaultOwnershipResp)]
+    VaultOwnership { perp_id: u32, depositor: String },
     #[returns(DydxSubaccountResp)]
     DydxSubaccount { owner: String, number: u32 },
+    #[returns(PerpetualClobDetailsResponse)]
+    Other  { perp_id: u32 },
 }
 
 #[cw_serde]
@@ -31,7 +35,7 @@ pub enum ExecuteMsg {
     ThawVault { perp_id: u32 },
     // ModifyVaultFee,
     // CollectFeesFromVault,
-    DepositIntoVault,
+    DepositIntoVault { perp_id: u32, amount: u64 },
     WithdrawFromVault,
     PlaceOrder,
     CancelOrder,
@@ -55,6 +59,29 @@ pub struct VaultStateResp {
 }
 
 #[cw_serde]
+pub struct VaultOwnershipResp {
+    pub subaccount_owner: String,
+    pub subaccount_number: u32,
+    pub asset_usdc_value: Decimal,
+    pub perp_usdc_value: Decimal,
+    pub depositor_lp_tokens: Uint128,
+    pub outstanding_lp_tokens: Uint128,
+}
+
+#[cw_serde]
 pub struct DydxSubaccountResp {
     pub subaccount: Subaccount,
+}
+
+#[cw_serde]
+pub struct LpTokenBalanceResponse {
+    pub balance: Uint128,
+}
+
+#[cw_serde]
+pub struct TokenInfoResponse {
+    pub name: String,
+    pub symbol: String,
+    pub decimals: u8,
+    pub total_supply: Uint128,
 }
