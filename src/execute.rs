@@ -1,6 +1,5 @@
 use cosmwasm_std::{
-    to_json_binary, Addr, Decimal, DepsMut, Env, Event, MessageInfo, Response, StdResult, Uint128,
-    WasmMsg,
+    to_json_binary, Addr, Decimal, DepsMut, Env, Event, Fraction, MessageInfo, Response, StdResult, Uint128, WasmMsg
 };
 use cw20_base::state::{MinterData, TokenInfo};
 
@@ -206,11 +205,11 @@ pub fn deposit_into_vault(
     let share_value_fraction = deposit_value / (deposit_value + subaccount_value);
     let outstanding_tokens = Decimal::from_atomics(lp_token_info.total_supply, USDC_DENOM).unwrap();
     let new_tokens = if share_value_fraction == Decimal::one() {
-        Uint128::new(amount as u128)
+        Uint128::new(10 as u128).pow(USDC_DENOM)
     } else {
         let token_amt_decimal =
             (share_value_fraction * outstanding_tokens) / (Decimal::one() - share_value_fraction);
-            token_amt_decimal.to_uint_floor()
+            token_amt_decimal.numerator() / Uint128::new(10 as u128).pow(Decimal::DECIMAL_PLACES - USDC_DENOM)
     };
 
     // mint tokens to depositor
@@ -227,10 +226,18 @@ pub fn deposit_into_vault(
         quantums: amount,
     };
 
-    // TODO: more events
+    // TODO: more events, less debugging
+
+    let event = Event::new("token_mint_math")
+        .add_attribute("subaccount_value", subaccount_value.to_string())
+        .add_attribute("deposit_value", deposit_value.to_string())
+        .add_attribute("share_value_fraction", share_value_fraction.to_string())
+        .add_attribute("outstanding_tokens", outstanding_tokens.to_string())
+        .add_attribute("new_tokens", new_tokens.to_string());
 
     Ok(Response::new()
         .add_attribute("method", "deposit_into_vault")
+        .add_event(event)
         .add_message(deposit))
 }
 

@@ -1,12 +1,12 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize, Deserializer, Serializer};
 use num_bigint::BigInt;
-use schemars::schema::{Schema, SchemaObject, InstanceType};
+use schemars::schema::{InstanceType, Schema, SchemaObject};
+use schemars::JsonSchema;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct SerializableInt {
-    i: BigInt,
+    pub i: BigInt,
 }
 
 impl SerializableInt {

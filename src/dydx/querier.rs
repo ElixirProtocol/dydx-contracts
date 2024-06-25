@@ -1,6 +1,13 @@
 use cosmwasm_std::{QuerierWrapper, StdResult};
 
-use super::{proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount}, query::{DydxQuery, DydxQueryWrapper, MarketPriceResponse, PerpetualClobDetailsResponse, SubaccountResponse}, route::DydxRoute};
+use super::{
+    proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount},
+    query::{
+        DydxQuery, DydxQueryWrapper, MarketPriceResponse, PerpetualClobDetailsResponse,
+        SubaccountResponse,
+    },
+    route::DydxRoute,
+};
 
 /// This is a helper wrapper to easily use our custom queries
 pub struct DydxQuerier<'a> {
@@ -26,27 +33,34 @@ impl<'a> DydxQuerier<'a> {
     pub fn query_subaccount(&self, owner: String, number: u32) -> StdResult<SubaccountResponse> {
         let request = DydxQueryWrapper {
             route: DydxRoute::Subaccount,
-            query_data: DydxQuery::Subaccount { 
+            query_data: DydxQuery::Subaccount {
                 owner: owner,
                 number: number,
             },
         }
-            .into();
+        .into();
 
-        let result: Result<Subaccount, cosmwasm_std::StdError> = self.querier.query::<Subaccount>(&request);
-        Ok(SubaccountResponse { subaccount: result? })
-
-
+        let result: Result<Subaccount, cosmwasm_std::StdError> =
+            self.querier.query::<Subaccount>(&request);
+        Ok(SubaccountResponse {
+            subaccount: result?,
+        })
     }
 
-    pub fn query_perpetual_clob_details(&self, perpetual_id: u32) -> StdResult<PerpetualClobDetailsResponse> {
+    pub fn query_perpetual_clob_details(
+        &self,
+        perpetual_id: u32,
+    ) -> StdResult<PerpetualClobDetailsResponse> {
         let request = DydxQueryWrapper {
             route: DydxRoute::PerpetualClobDetails,
             query_data: DydxQuery::PerpetualClobDetails { id: perpetual_id },
         }
-            .into();
-        
-        let result: Result<PerpetualClobDetails, cosmwasm_std::StdError> = self.querier.query::<PerpetualClobDetails>(&request);
-        Ok(PerpetualClobDetailsResponse { perpetual_clob_details: result? })
+        .into();
+
+        let result: Result<PerpetualClobDetails, cosmwasm_std::StdError> =
+            self.querier.query::<PerpetualClobDetails>(&request);
+        Ok(PerpetualClobDetailsResponse {
+            perpetual_clob_details: result?,
+        })
     }
 }

@@ -2,8 +2,10 @@ use cosmwasm_std::CustomQuery;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::{proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount}, route::DydxRoute};
-
+use super::{
+    proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount},
+    route::DydxRoute,
+};
 
 /// SeiQueryWrapper is an override of QueryRequest::Custom to access Sei-specific modules
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -20,16 +22,9 @@ impl CustomQuery for DydxQueryWrapper {}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DydxQuery {
-    MarketPrice {
-        id: u32,
-    },
-    Subaccount {
-        owner: String,
-        number: u32,
-    },
-    PerpetualClobDetails {
-        id: u32,
-    }
+    MarketPrice { id: u32 },
+    Subaccount { owner: String, number: u32 },
+    PerpetualClobDetails { id: u32 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

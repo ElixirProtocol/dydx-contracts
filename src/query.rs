@@ -98,14 +98,11 @@ pub fn query_validated_dydx_position(
     perp_id: u32,
 ) -> ContractResult<ValidatedDydxPosition> {
     // TODO: ensure that this function works when money is in unfilled orders
-    // TODO: fix broken query_perpetual_clob_details query
-
-    // Error: rpc error: code = Unknown desc = Error parsing into type elixir_dydx_integration::dydx::proto_structs::PerpetualClobDetails: missing field `perpetual_id`: query wasm contract failed: unknown request
 
     // query subaccount + price state from dYdX
-    // let clob_resp = querier.query_perpetual_clob_details(perp_id)?;
-    // let perp_params = clob_resp.perpetual_clob_details.perpetual.params;
-    let market_price_resp = querier.query_market_price(0)?;//perp_params.market_id)?;
+    let clob_resp = querier.query_perpetual_clob_details(perp_id)?;
+    let perp_params = clob_resp.perpetual_clob_details.perpetual.params;
+    let market_price_resp = querier.query_market_price(perp_params.market_id)?;
     let subaccount_resp = querier.query_subaccount(env.contract.address.to_string(), perp_id)?;
     let subaccount = subaccount_resp.subaccount;
 
@@ -130,13 +127,13 @@ pub fn query_validated_dydx_position(
         None => Decimal::zero(),
     };
 
-    // if perp_params.atomic_resolution > 0 {
-    //     return Err(ContractError::InvalidPerpExponent {
-    //         exponent: perp_params.atomic_resolution,
-    //         perp_id,
-    //     });
-    // };
-    let perp_exponent = 0u32; //(-1 * perp_params.atomic_resolution) as u32;
+    if perp_params.atomic_resolution > 0 {
+        return Err(ContractError::InvalidPerpExponent {
+            exponent: perp_params.atomic_resolution,
+            perp_id,
+        });
+    };
+    let perp_exponent = (-1 * perp_params.atomic_resolution) as u32;
     let perp_position = subaccount
         .perpetual_positions
         .iter()
