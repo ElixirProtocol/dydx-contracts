@@ -1,5 +1,8 @@
 use crate::{
-    dydx::{querier::DydxQuerier, query::{DydxQueryWrapper, PerpetualClobDetailsResponse}},
+    dydx::{
+        querier::DydxQuerier,
+        query::{DydxQueryWrapper, PerpetualClobDetailsResponse},
+    },
     error::{ContractError, ContractResult},
     execute::{USDC_DENOM, USDC_ID},
     msg::{
@@ -11,11 +14,13 @@ use crate::{
 use cosmwasm_std::{Decimal, Deps, Env, StdResult, Uint128};
 use num_traits::ToPrimitive;
 
-pub fn other(deps: Deps<DydxQueryWrapper>,
-    perp_id: u32) -> StdResult<PerpetualClobDetailsResponse>  {
-        let querier = DydxQuerier::new(&deps.querier);
-        querier.query_perpetual_clob_details(perp_id)
-    }
+pub fn other(
+    deps: Deps<DydxQueryWrapper>,
+    perp_id: u32,
+) -> StdResult<PerpetualClobDetailsResponse> {
+    let querier = DydxQuerier::new(&deps.querier);
+    querier.query_perpetual_clob_details(perp_id)
+}
 
 pub fn trader(deps: Deps<DydxQueryWrapper>) -> StdResult<TraderResp> {
     let state = STATE.load(deps.storage)?;
@@ -65,7 +70,11 @@ pub fn dydx_subaccount(
     Ok(DydxSubaccountResp { subaccount })
 }
 
-pub fn balance(deps: Deps<DydxQueryWrapper>, perp_id: u32, address: String) -> StdResult<LpTokenBalanceResponse> {
+pub fn balance(
+    deps: Deps<DydxQueryWrapper>,
+    perp_id: u32,
+    address: String,
+) -> StdResult<LpTokenBalanceResponse> {
     let address = deps.api.addr_validate(&address)?;
     let balance = LP_BALANCES
         .may_load(deps.storage, (perp_id, &address))?
@@ -74,8 +83,10 @@ pub fn balance(deps: Deps<DydxQueryWrapper>, perp_id: u32, address: String) -> S
 }
 
 pub fn lp_token_info(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<TokenInfoResponse> {
-    let info = LP_TOKENS.may_load(deps.storage, perp_id)?
-    .ok_or(ContractError::MissingLpToken {perp_id}).unwrap();
+    let info = LP_TOKENS
+        .may_load(deps.storage, perp_id)?
+        .ok_or(ContractError::MissingLpToken { perp_id })
+        .unwrap();
     let res = TokenInfoResponse {
         name: info.name,
         symbol: info.symbol,
@@ -113,7 +124,8 @@ pub fn query_validated_dydx_position(
         });
     };
     let price_exponent = (-1 * market_price_resp.market_price.exponent) as u32;
-    let price = Decimal::from_atomics(market_price_resp.market_price.price, price_exponent).unwrap();
+    let price =
+        Decimal::from_atomics(market_price_resp.market_price.price, price_exponent).unwrap();
 
     let usdc_position = subaccount
         .asset_positions

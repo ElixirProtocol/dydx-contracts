@@ -1,5 +1,3 @@
-use std::default;
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -39,6 +37,7 @@ pub struct SubaccountId {
     #[serde(default)]
     pub number: u32,
 }
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Subaccount {
     pub id: Option<SubaccountId>,
@@ -61,13 +60,13 @@ pub struct ClobPair {
     #[serde(default)]
     pub step_base_quantums: u64,
     /// Defines the tick size of the orderbook by defining how many subticks
-	/// are in one tick. That is, the subticks of any valid order must be a
-	/// multiple of this value. Generally this value should start `>= 100`to
-	/// allow room for decreasing it.
+    /// are in one tick. That is, the subticks of any valid order must be a
+    /// multiple of this value. Generally this value should start `>= 100`to
+    /// allow room for decreasing it.
     #[serde(default)]
     pub subticks_per_tick: u32,
     /// `10^Exponent` gives the number of QuoteQuantums traded per BaseQuantum
-	/// per Subtick.
+    /// per Subtick.
     #[serde(default)]
     pub quantum_conversion_exponent: i32,
     #[serde(default)]
@@ -83,9 +82,7 @@ pub enum Metadata {
 
 impl Default for Metadata {
     fn default() -> Self {
-        Metadata:: PerpetualClobMetadata(PerpetualClobMetadata {
-            perpetual_id: 21
-        })
+        Metadata::PerpetualClobMetadata(PerpetualClobMetadata { perpetual_id: 0 })
     }
 }
 
@@ -129,14 +126,14 @@ pub struct PerpetualParams {
     pub id: u32,
     pub ticker: String,
     /// The market associated with this `Perpetual`. It
-	/// acts as the oracle price for the purposes of calculating
-	/// collateral, margin requirements, and funding rates.
+    /// acts as the oracle price for the purposes of calculating
+    /// collateral, margin requirements, and funding rates.
     #[serde(default)]
     pub market_id: u32,
-	/// The exponent for converting an atomic amount (`size = 1`)
-	/// to a full coin. For example, if `AtomicResolution = -8`
-	/// then a `PerpetualPosition` with `size = 1e8` is equivalent to
-	/// a position size of one full coin.
+    /// The exponent for converting an atomic amount (`size = 1`)
+    /// to a full coin. For example, if `AtomicResolution = -8`
+    /// then a `PerpetualPosition` with `size = 1e8` is equivalent to
+    /// a position size of one full coin.
     #[serde(default)]
     pub atomic_resolution: i32,
     #[serde(default)]

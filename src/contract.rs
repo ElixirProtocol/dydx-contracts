@@ -49,9 +49,14 @@ pub fn execute(
         ExecuteMsg::DepositIntoVault { amount, perp_id } => {
             crate::execute::deposit_into_vault(deps, env, info, perp_id, amount).map_err(Into::into)
         }
-        ExecuteMsg::WithdrawFromVault => todo!(),
-        ExecuteMsg::PlaceOrder => todo!(),
-        ExecuteMsg::CancelOrder => todo!(),
+        ExecuteMsg::WithdrawFromVault { amount, perp_id } => todo!(),
+        ExecuteMsg::PlaceOrder { order } => {
+            crate::execute::place_order(deps, env, info, order).map_err(Into::into)
+        }
+        ExecuteMsg::CancelOrder {
+            order_id,
+            good_til_oneof,
+        } => crate::execute::cancel_order(deps, env, info, order_id, good_til_oneof),
         // ExecuteMsg::A { perp_id } => crate::execute::a(deps, env, info, perp_id).map_err(Into::into),
         // ExecuteMsg::B { perp_id } => crate::execute::b(deps, env, info, perp_id).map_err(Into::into),
         // ExecuteMsg::C { perp_id } => crate::execute::c(deps, env, info, perp_id).map_err(Into::into),
@@ -76,9 +81,7 @@ pub fn query(deps: Deps<DydxQueryWrapper>, env: Env, msg: QueryMsg) -> StdResult
         )?),
         DydxSubaccount { owner, number } => {
             to_json_binary(&crate::query::dydx_subaccount(deps, owner, number)?)
-        },
-        Other { perp_id } => {
-            to_json_binary(&crate::query::other(deps, perp_id)?)
         }
+        Other { perp_id } => to_json_binary(&crate::query::other(deps, perp_id)?),
     }
 }

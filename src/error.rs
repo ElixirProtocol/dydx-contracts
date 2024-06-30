@@ -15,6 +15,8 @@ pub enum ContractError {
     NewTraderMustNotBeCurrentTrader,
     #[error("An invalid address was provided: {addr}")]
     InvalidAddress { addr: String },
+    #[error("{addr} cannot submit trades")]
+    SenderIsNotTrader { addr: String },
     #[error("{sender} does not have permission to create vaults")]
     SenderCannotCreateVault { sender: Addr },
     #[error("{sender} does not have permission to freeze the vault")]
@@ -32,8 +34,8 @@ pub enum ContractError {
     #[error("Trade permissions cannot be revoked from the contract deployer")]
     CannotRemoveContractDeployerAsTrader,
 
-    #[error("Vault must be halted to change trader")]
-    VaultMustBeHaltedToChangeTrader,
+    #[error("Vault with perp_id: {perp_id} must be open to place a trade")]
+    VaultIsNotOpen { perp_id: u32 },
 
     #[error("Vault already initialized for perp_id: {perp_id}")]
     VaultAlreadyInitialized { perp_id: u32 },
@@ -49,6 +51,9 @@ pub enum ContractError {
 
     #[error("The subaccount for vault with perp_id: {perp_id} has more that one asset position")]
     VaultSubaccountHasMoreThanOneAssetPosition { perp_id: u32 },
+
+    #[error("The subaccount of the order id must be owned by this smart contract")]
+    InvalidOrderIdSubaccountOwner,
 
     #[error("Parsed an invalid exponent for oracle price: {exponent} for market with perp_id: {perp_id}")]
     InvalidPriceExponent { exponent: i32, perp_id: u32 },

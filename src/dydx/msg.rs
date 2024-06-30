@@ -1,4 +1,4 @@
-use cosmwasm_std::{BankMsg, CosmosMsg, CustomMsg, Event};
+use cosmwasm_std::{CosmosMsg, CustomMsg, Event};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
@@ -53,6 +53,17 @@ pub struct OrderId {
     pub client_id: u32,
     pub order_flags: u32,
     pub clob_pair_id: u32,
+}
+
+impl OrderId {
+    pub fn get_cancel_event(&self) -> Event {
+        Event::new("cancelled_order")
+            .add_attribute("owner", self.subaccount_id.owner.clone())
+            .add_attribute("subaccount_number", self.subaccount_id.number.to_string())
+            .add_attribute("client_id", self.client_id.to_string())
+            .add_attribute("order_flags", self.order_flags.to_string())
+            .add_attribute("clob_pair_id", self.clob_pair_id.to_string())
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
