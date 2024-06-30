@@ -3,7 +3,7 @@ use cosmwasm_std::{Addr, Decimal, Uint128};
 
 use crate::{
     dydx::{
-        msg::{GoodTilOneof, Order, OrderId},
+        msg::{OrderConditionType, OrderSide, OrderTimeInForce},
         proto_structs::Subaccount,
         query::PerpetualClobDetailsResponse,
     },
@@ -49,18 +49,32 @@ pub enum ExecuteMsg {
     // CollectFeesFromVault,
     DepositIntoVault {
         perp_id: u32,
-        amount: u64,
     },
     WithdrawFromVault {
         perp_id: u32,
         amount: u64,
     },
     PlaceOrder {
-        order: Order,
+        subaccount_number: u32,
+        client_id: u32,
+        order_flags: u32,
+        clob_pair_id: u32,
+        side: OrderSide,
+        quantums: u64,
+        subticks: u64,
+        good_til_block_time: u32,
+        time_in_force: OrderTimeInForce,
+        reduce_only: bool,
+        client_metadata: u32,
+        condition_type: OrderConditionType,
+        conditional_order_trigger_subticks: u64,
     },
     CancelOrder {
-        order_id: OrderId,
-        good_til_oneof: GoodTilOneof,
+        subaccount_number: u32,
+        client_id: u32,
+        order_flags: u32,
+        clob_pair_id: u32,
+        good_til_block_time: u32,
     },
     // A { perp_id: u32 },
     // B { perp_id: u32 },
@@ -113,7 +127,7 @@ pub struct TokenInfoResponse {
 mod tests {
     use crate::dydx::{
         msg::{
-            DydxMsg, GoodTilOneof, Order, OrderConditionType, OrderId, OrderSide, OrderTimeInForce,
+            DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce,
         },
         proto_structs::SubaccountId,
     };
@@ -121,28 +135,31 @@ mod tests {
     #[test]
 
     fn example_serialize_place_order() {
-        let order = Order {
-            order_id: OrderId {
-                subaccount_id: SubaccountId {
-                    owner: "dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j"
-                        .to_string(),
-                    number: 0,
-                },
-                client_id: 101,
-                order_flags: 64,
-                clob_pair_id: 0,
-            },
-            side: OrderSide::Buy,
-            quantums: 1000000,
-            subticks: 100000,
-            good_til_oneof: GoodTilOneof::GoodTilBlockTime(u32::MAX),
-            time_in_force: OrderTimeInForce::Unspecified,
-            reduce_only: false,
-            client_metadata: 0,
-            condition_type: OrderConditionType::Unspecified,
-            conditional_order_trigger_subticks: 0,
+        
+        let side = OrderSide::Buy;
+        let quantums = 1000000;
+        let subticks = 100000;
+        let time_in_force = OrderTimeInForce::Unspecified;
+        let reduce_only = false;
+        let client_metadata = 0;
+        let condition_type = OrderConditionType::Unspecified;
+        let conditional_order_trigger_subticks = 0;
+
+        let msg = DydxMsg::PlaceOrder {
+            subaccount_number: 0,
+            client_id: 101,
+            order_flags: 64,
+            clob_pair_id: 0,
+            side,
+            quantums,
+            subticks,
+            good_til_block_time: 1234,
+            time_in_force,
+            reduce_only,
+            client_metadata,
+            condition_type,
+            conditional_order_trigger_subticks,
         };
-        let msg = DydxMsg::PlaceOrder { order };
 
         let serialized_msg = serde_json::to_string(&msg).unwrap();
         println!("{}", serialized_msg);
@@ -151,7 +168,6 @@ mod tests {
     #[test]
     fn example_serialize_deposit() {
         let msg = DydxMsg::DepositToSubaccount {
-            sender: "dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j".to_string(),
             recipient: SubaccountId {
                 owner: "dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j"
                     .to_string(),

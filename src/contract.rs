@@ -46,17 +46,59 @@ pub fn execute(
         ExecuteMsg::ThawVault { perp_id } => {
             crate::execute::thaw_vault(deps, info, perp_id).map_err(Into::into)
         }
-        ExecuteMsg::DepositIntoVault { amount, perp_id } => {
-            crate::execute::deposit_into_vault(deps, env, info, perp_id, amount).map_err(Into::into)
+        ExecuteMsg::DepositIntoVault { perp_id } => {
+            crate::execute::deposit_into_vault(deps, env, info, perp_id).map_err(Into::into)
         }
         ExecuteMsg::WithdrawFromVault { amount, perp_id } => todo!(),
-        ExecuteMsg::PlaceOrder { order } => {
-            crate::execute::place_order(deps, env, info, order).map_err(Into::into)
-        }
+        ExecuteMsg::PlaceOrder {
+            subaccount_number,
+            client_id,
+            order_flags,
+            clob_pair_id,
+            side,
+            quantums,
+            subticks,
+            good_til_block_time,
+            time_in_force,
+            reduce_only,
+            client_metadata,
+            condition_type,
+            conditional_order_trigger_subticks,
+        } => crate::execute::place_order(
+            deps,
+            env,
+            info,
+            subaccount_number,
+            client_id,
+            order_flags,
+            clob_pair_id,
+            side,
+            quantums,
+            subticks,
+            good_til_block_time,
+            time_in_force,
+            reduce_only,
+            client_metadata,
+            condition_type,
+            conditional_order_trigger_subticks,
+        )
+        .map_err(Into::into),
         ExecuteMsg::CancelOrder {
-            order_id,
-            good_til_oneof,
-        } => crate::execute::cancel_order(deps, env, info, order_id, good_til_oneof),
+            subaccount_number,
+            client_id,
+            order_flags,
+            clob_pair_id,
+            good_til_block_time,
+        } => crate::execute::cancel_order(
+            deps,
+            env,
+            info,
+            subaccount_number,
+            client_id,
+            order_flags,
+            clob_pair_id,
+            good_til_block_time,
+        ),
         // ExecuteMsg::A { perp_id } => crate::execute::a(deps, env, info, perp_id).map_err(Into::into),
         // ExecuteMsg::B { perp_id } => crate::execute::b(deps, env, info, perp_id).map_err(Into::into),
         // ExecuteMsg::C { perp_id } => crate::execute::c(deps, env, info, perp_id).map_err(Into::into),

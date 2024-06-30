@@ -1,9 +1,11 @@
 use cosmwasm_std::{
-    Addr, Decimal, DepsMut, Env, Event, Fraction, MessageInfo, Response, StdResult, Uint128,
+    Addr, Decimal, DepsMut, Env, Event, Fraction, MessageInfo, Response, StdResult, Uint128
 };
 use cw20_base::state::{MinterData, TokenInfo};
 
-use crate::dydx::msg::{DydxMsg, GoodTilOneof, Order, OrderId};
+use crate::dydx::msg::{
+    DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce,
+};
 use crate::dydx::proto_structs::SubaccountId;
 use crate::dydx::querier::DydxQuerier;
 use crate::dydx::query::DydxQueryWrapper;
@@ -14,6 +16,7 @@ use crate::{error::ContractError, state::STATE};
 
 pub const USDC_ID: u32 = 0;
 pub const USDC_DENOM: u32 = 6;
+pub const USDC_COIN_TYPE: &str = "ibc/8E27BA2D5493AF5636760E354E46004562C46AB7EC0CC4C1CA14E9E20E2545B5";
 
 pub fn set_trader(
     deps: DepsMut<DydxQueryWrapper>,
@@ -52,8 +55,6 @@ pub fn create_vault(
     info: MessageInfo,
     perp_id: u32,
 ) -> ContractResult<Response<DydxMsg>> {
-    const AMOUNT: u64 = 1;
-
     let state = STATE.load(deps.storage)?;
     verify_owner_or_trader(&info.sender, &state.owner, &state.trader)?;
 
@@ -85,28 +86,10 @@ pub fn create_vault(
     };
     LP_TOKENS.save(deps.storage, perp_id, &data)?;
 
-    // deposit smallest amount of USDC in dYdX contract to create account
-    let deposit = DydxMsg::DepositToSubaccount {
-        sender: info.sender.to_string(),
-        recipient: subaccount_id.clone(),
-        asset_id: USDC_ID,
-        quantums: AMOUNT,
-    };
-
-    // withdraw so that user deposits always start accounting from 0
-    let withdraw = DydxMsg::WithdrawFromSubaccount {
-        sender: subaccount_id,
-        recipient: info.sender.to_string(),
-        asset_id: USDC_ID,
-        quantums: AMOUNT,
-    };
-
     // TODO: more events
 
     Ok(Response::new()
-        .add_attribute("method", "create_vault")
-        .add_message(deposit)
-        .add_message(withdraw))
+        .add_attribute("method", "create_vault"))
 }
 
 /// Allows a user to deposit into the market-making vault.
@@ -116,12 +99,14 @@ pub fn deposit_into_vault(
     env: Env,
     info: MessageInfo,
     perp_id: u32,
-    amount: u64,
 ) -> ContractResult<Response<DydxMsg>> {
     let subaccount_id = get_contract_subaccount_id(&env, perp_id);
     let querier = DydxQuerier::new(&deps.querier);
 
     // assert that user is depositing USDC
+    assert!(info.funds.len() == 1);    
+    assert!(info.funds[0].denom == USDC_COIN_TYPE);
+    let amount = info.funds[0].amount;
 
     // assert vault exists
 
@@ -159,10 +144,9 @@ pub fn deposit_into_vault(
     .unwrap();
 
     let deposit = DydxMsg::DepositToSubaccount {
-        sender: info.sender.to_string(),
         recipient: subaccount_id.clone(),
         asset_id: USDC_ID,
-        quantums: amount,
+        quantums: amount.u128() as u64, // TODO: make nicer
     };
 
     // TODO: more events, less debugging
@@ -184,9 +168,21 @@ pub fn deposit_into_vault(
 /// Requires the sender to be the trader and the order to be placed in an existing vault.
 pub fn place_order(
     deps: DepsMut<DydxQueryWrapper>,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
-    order: Order,
+    subaccount_number: u32,
+    client_id: u32,
+    order_flags: u32,
+    clob_pair_id: u32,
+    side: OrderSide,
+    quantums: u64,
+    subticks: u64,
+    good_til_block_time: u32,
+    time_in_force: OrderTimeInForce,
+    reduce_only: bool,
+    client_metadata: u32,
+    condition_type: OrderConditionType,
+    conditional_order_trigger_subticks: u64,
 ) -> ContractResult<Response<DydxMsg>> {
     let state = STATE.load(deps.storage)?;
 
@@ -197,7 +193,7 @@ pub fn place_order(
         });
     }
 
-    let perp_id = order.order_id.subaccount_id.number;
+    let perp_id = subaccount_number;
     // validate vault
     if !VAULT_STATES_BY_PERP_ID.has(deps.storage, perp_id) {
         return Err(ContractError::VaultNotInitialized { perp_id });
@@ -207,17 +203,31 @@ pub fn place_order(
         return Err(ContractError::VaultIsNotOpen { perp_id });
     }
 
-    // validate order
-    if order.order_id.subaccount_id.owner != env.contract.address {
-        return Err(ContractError::InvalidOrderIdSubaccountOwner);
-    }
+    // // validate order
+    // if order.order_id.subaccount_id.owner != env.contract.address {
+    //     return Err(ContractError::InvalidOrderIdSubaccountOwner);
+    // }
 
-    let event = order.get_place_event();
-    let place_order = DydxMsg::PlaceOrder { order };
+    // let event = order.get_place_event();
+    let place_order = DydxMsg::PlaceOrder {
+        subaccount_number,
+        client_id,
+        order_flags,
+        clob_pair_id,
+        side,
+        quantums,
+        subticks,
+        good_til_block_time,
+        time_in_force,
+        reduce_only,
+        client_metadata,
+        condition_type,
+        conditional_order_trigger_subticks,
+    };
 
     Ok(Response::new()
         .add_attribute("method", "place_order")
-        .add_event(event)
+        // .add_event(event)
         .add_message(place_order))
 }
 
@@ -225,10 +235,13 @@ pub fn place_order(
 /// Requires the sender to be the trader and the order to have been placed by this smart contract in an existing vault.
 pub fn cancel_order(
     deps: DepsMut<DydxQueryWrapper>,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
-    order_id: OrderId,
-    good_til_oneof: GoodTilOneof,
+    subaccount_number: u32,
+    client_id: u32,
+    order_flags: u32,
+    clob_pair_id: u32,
+    good_til_block_time: u32,
 ) -> ContractResult<Response<DydxMsg>> {
     let state = STATE.load(deps.storage)?;
 
@@ -239,20 +252,23 @@ pub fn cancel_order(
         });
     }
 
-    // validate cancelling a smart-contract owned order
-    if order_id.subaccount_id.owner != env.contract.address {
-        return Err(ContractError::InvalidOrderIdSubaccountOwner);
-    }
+    // // validate cancelling a smart-contract owned order
+    // if order_id.subaccount_id.owner != env.contract.address {
+    //     return Err(ContractError::InvalidOrderIdSubaccountOwner);
+    // }
 
-    let event = order_id.get_cancel_event();
+    // let event = order_id.get_cancel_event();
     let cancel_order = DydxMsg::CancelOrder {
-        order_id,
-        good_til_oneof,
+        subaccount_number,
+        client_id,
+        order_flags,
+        clob_pair_id,
+        good_til_block_time,
     };
 
     Ok(Response::new()
         .add_attribute("method", "cancel_order")
-        .add_event(event)
+        // .add_event(event)
         .add_message(cancel_order))
 }
 
