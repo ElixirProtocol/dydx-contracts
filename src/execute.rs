@@ -134,7 +134,7 @@ pub fn deposit_into_vault(
         sender: env.contract.address.clone(),
         funds: vec![],
     };
-    do_mint(
+    mint_lp_tokens(
         deps,
         sub_info,
         perp_id,
@@ -162,6 +162,60 @@ pub fn deposit_into_vault(
         .add_attribute("method", "deposit_into_vault")
         .add_event(event)
         .add_message(deposit))
+}
+
+/// withdraw
+pub fn withdraw_from_vault(
+    deps: DepsMut<DydxQueryWrapper>,
+    env: Env,
+    info: MessageInfo,
+    perp_id: u32,
+) -> ContractResult<Response<DydxMsg>> {
+    let subaccount_id = get_contract_subaccount_id(&env, perp_id);
+    let querier = DydxQuerier::new(&deps.querier);
+
+    let vp = query_validated_dydx_position(&querier, &env, perp_id)?;
+    let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
+    let lp_token_info = lp_token_info(deps.as_ref(), perp_id)?;
+
+    // derive withdrawal value and LP burn amount
+    // if 0, withdraw all 
+    let withdraw_quantums = 0;
+    let burn_amount = 0u64;
+
+    // burn withdrawer's LP tokens
+    let sub_info = MessageInfo {
+        sender: env.contract.address.clone(),
+        funds: vec![],
+    };
+    burn_lp_tokens(
+        deps,
+        sub_info,
+        perp_id,
+        info.sender.to_string(),
+        burn_amount.into(),
+    )
+    .unwrap();
+
+
+    let withdraw = DydxMsg::WithdrawFromSubaccount {
+        subaccount_number: perp_id,
+        recipient: info.sender.to_string(),
+        asset_id: USDC_ID,
+        quantums: 0,
+    };
+
+    // let event = Event::new("")
+    // .add_attribute("subaccount_value", subaccount_value.to_string())
+    // .add_attribute("withdraw_value", deposit_value.to_string())
+    // .add_attribute("share_value_fraction", share_value_fraction.to_string())
+    // .add_attribute("outstanding_tokens", outstanding_tokens.to_string())
+    // .add_attribute("new_tokens", new_tokens.to_string());
+
+    Ok(Response::new()
+    .add_attribute("method", "deposit_into_vault")
+    // .add_event(event)
+    .add_message(withdraw))
 }
 
 /// Places an order on dYdX.
@@ -342,33 +396,6 @@ pub fn thaw_vault(
         .add_event(event))
 }
 
-// /// withdraw
-// pub fn d(
-//     _deps: DepsMut<DydxQueryWrapper>,
-//     env: Env,
-//     info: MessageInfo,
-//     perp_id: u32,
-// ) -> ContractResult<Response<DydxMsg>> {
-//     const AMOUNT: u64 = 1;
-//     const USDC_ID: u32 = 0;
-
-//     let subaccount_id = SubaccountId {
-//         owner: env.contract.address.to_string(),
-//         number: perp_id,
-//     };
-
-//     let withdraw = DydxMsg::WithdrawFromSubaccount {
-//         sender: subaccount_id,
-//         recipient: info.sender.to_string(),
-//         asset_id: USDC_ID,
-//         quantums: AMOUNT,
-//     };
-
-//     Ok(Response::new()
-//     .add_attribute("method", "withdraw_example")
-//     .add_message(withdraw))
-// }
-
 fn verify_owner_or_trader(sender: &Addr, owner: &Addr, trader: &Addr) -> ContractResult<()> {
     if sender != owner && sender != trader {
         return Err(ContractError::SenderCannotModifyTrader {
@@ -396,7 +423,7 @@ fn get_contract_subaccount_id(env: &Env, perp_id: u32) -> SubaccountId {
     }
 }
 
-fn do_mint(
+fn mint_lp_tokens(
     deps: DepsMut<DydxQueryWrapper>,
     info: MessageInfo,
     perp_id: u32,
@@ -433,6 +460,47 @@ fn do_mint(
         (perp_id, &rcpt_addr),
         |balance: Option<Uint128>| -> StdResult<_> { Ok(balance.unwrap_or_default() + amount) },
     )?;
+
+    Ok(())
+}
+
+fn burn_lp_tokens(
+    deps: DepsMut<DydxQueryWrapper>,
+    info: MessageInfo,
+    perp_id: u32,
+    recipient: String,
+    amount: Uint128,
+) -> ContractResult<()> {
+    // let mut config = LP_TOKENS
+    //     .may_load(deps.storage, perp_id)?
+    //     .ok_or(ContractError::Unauthorized {})?;
+
+    // if config
+    //     .mint
+    //     .as_ref()
+    //     .ok_or(ContractError::Unauthorized {})?
+    //     .minter
+    //     != info.sender
+    // {
+    //     return Err(ContractError::Unauthorized {});
+    // }
+
+    // // update supply and enforce cap
+    // config.total_supply += amount;
+    // if let Some(limit) = config.get_cap() {
+    //     if config.total_supply > limit {
+    //         return Err(ContractError::CannotExceedCap {});
+    //     }
+    // }
+    // LP_TOKENS.save(deps.storage, perp_id, &config)?;
+
+    // // add amount to recipient balance
+    // let rcpt_addr = deps.api.addr_validate(&recipient)?;
+    // LP_BALANCES.update(
+    //     deps.storage,
+    //     (perp_id, &rcpt_addr),
+    //     |balance: Option<Uint128>| -> StdResult<_> { Ok(balance.unwrap_or_default() + amount) },
+    // )?;
 
     Ok(())
 }
