@@ -11,10 +11,10 @@ use crate::{
     },
     state::{LP_BALANCES, LP_TOKENS, STATE, VAULT_STATES_BY_PERP_ID},
 };
-use cosmwasm_std::{Decimal, Deps, Env, StdResult, Uint128};
+use cosmwasm_std::{Decimal, Deps, Env, StdResult};
 use num_traits::ToPrimitive;
 
-pub fn other(
+pub fn perp_clob_details(
     deps: Deps<DydxQueryWrapper>,
     perp_id: u32,
 ) -> StdResult<PerpetualClobDetailsResponse> {

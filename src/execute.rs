@@ -1,11 +1,9 @@
 use cosmwasm_std::{
-    Addr, Decimal, DepsMut, Env, Event, Fraction, MessageInfo, Response, StdResult, Uint128
+    Addr, Decimal, DepsMut, Env, Event, Fraction, MessageInfo, Response, StdResult, Uint128,
 };
 use cw20_base::state::{MinterData, TokenInfo};
 
-use crate::dydx::msg::{
-    DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce,
-};
+use crate::dydx::msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce};
 use crate::dydx::proto_structs::SubaccountId;
 use crate::dydx::querier::DydxQuerier;
 use crate::dydx::query::DydxQueryWrapper;
@@ -16,7 +14,8 @@ use crate::{error::ContractError, state::STATE};
 
 pub const USDC_ID: u32 = 0;
 pub const USDC_DENOM: u32 = 6;
-pub const USDC_COIN_TYPE: &str = "ibc/8E27BA2D5493AF5636760E354E46004562C46AB7EC0CC4C1CA14E9E20E2545B5";
+pub const USDC_COIN_TYPE: &str =
+    "ibc/8E27BA2D5493AF5636760E354E46004562C46AB7EC0CC4C1CA14E9E20E2545B5";
 
 pub fn set_trader(
     deps: DepsMut<DydxQueryWrapper>,
@@ -88,8 +87,7 @@ pub fn create_vault(
 
     // TODO: more events
 
-    Ok(Response::new()
-        .add_attribute("method", "create_vault"))
+    Ok(Response::new().add_attribute("method", "create_vault"))
 }
 
 /// Allows a user to deposit into the market-making vault.
@@ -104,8 +102,8 @@ pub fn deposit_into_vault(
     let querier = DydxQuerier::new(&deps.querier);
 
     // assert that user is depositing USDC
-    assert!(info.funds.len() == 1);    
-    assert!(info.funds[0].denom == USDC_COIN_TYPE);
+    assert!(info.funds.len() == 1);
+    assert!(info.funds[0].denom == USDC_COIN_TYPE); // TODO: error type
     let amount = info.funds[0].amount;
 
     // assert vault exists
@@ -118,15 +116,15 @@ pub fn deposit_into_vault(
     // calculate the new deposit's share of total value
     // TODO: longer comment, explain math
     let share_value_fraction = deposit_value / (deposit_value + subaccount_value);
-    let outstanding_tokens = Decimal::from_atomics(lp_token_info.total_supply, USDC_DENOM).unwrap();
+    let outstanding_lp_tokens =
+        Decimal::from_atomics(lp_token_info.total_supply, lp_token_info.decimals as u32).unwrap();
     let new_tokens = if share_value_fraction == Decimal::one() {
         // TODO: fix large initial deposit bug
         Uint128::new(10 as u128).pow(USDC_DENOM)
     } else {
-        let token_amt_decimal =
-            (share_value_fraction * outstanding_tokens) / (Decimal::one() - share_value_fraction);
-        token_amt_decimal.numerator()
-            / Uint128::new(10 as u128).pow(Decimal::DECIMAL_PLACES - USDC_DENOM)
+        let token_amt_decimal = (share_value_fraction * outstanding_lp_tokens)
+            / (Decimal::one() - share_value_fraction);
+        decimal_to_native(token_amt_decimal, lp_token_info.decimals as u32)
     };
 
     // mint tokens to depositor
@@ -143,10 +141,15 @@ pub fn deposit_into_vault(
     )
     .unwrap();
 
+    assert!(amount.u128() < u64::MAX as u128);
+    // Note that in general we cannot assume that Denom amount == quantums:
+    // https://github.com/dydxprotocol/v4-chain/blob/c06db6fea945ad84fa4479df09078cee8feeba96/protocol/x/assets/types/asset.pb.go#L41
+    // however for USDC this is the case:
+    // https://github.com/dydxprotocol/v4-chain/blob/c06db6fea945ad84fa4479df09078cee8feeba96/protocol/x/assets/types/genesis.go#L18,
     let deposit = DydxMsg::DepositToSubaccount {
         recipient: subaccount_id.clone(),
         asset_id: USDC_ID,
-        quantums: amount.u128() as u64, // TODO: make nicer
+        quantums: amount.u128() as u64,
     };
 
     // TODO: more events, less debugging
@@ -155,7 +158,7 @@ pub fn deposit_into_vault(
         .add_attribute("subaccount_value", subaccount_value.to_string())
         .add_attribute("deposit_value", deposit_value.to_string())
         .add_attribute("share_value_fraction", share_value_fraction.to_string())
-        .add_attribute("outstanding_tokens", outstanding_tokens.to_string())
+        .add_attribute("outstanding_lp_tokens", outstanding_lp_tokens.to_string())
         .add_attribute("new_tokens", new_tokens.to_string());
 
     Ok(Response::new()
@@ -164,24 +167,63 @@ pub fn deposit_into_vault(
         .add_message(deposit))
 }
 
-/// withdraw
+/// User withdrawal from the LP vault. Requires that the user has enough LP tokens to support their requested withdrawal.
+/// If 0 is passed as the withdrawal_amount, the max possible withdrawal will be executed.
 pub fn withdraw_from_vault(
     deps: DepsMut<DydxQueryWrapper>,
     env: Env,
     info: MessageInfo,
+    amount: u64,
     perp_id: u32,
 ) -> ContractResult<Response<DydxMsg>> {
-    let subaccount_id = get_contract_subaccount_id(&env, perp_id);
     let querier = DydxQuerier::new(&deps.querier);
 
     let vp = query_validated_dydx_position(&querier, &env, perp_id)?;
     let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
-    let lp_token_info = lp_token_info(deps.as_ref(), perp_id)?;
 
     // derive withdrawal value and LP burn amount
-    // if 0, withdraw all 
-    let withdraw_quantums = 0;
-    let burn_amount = 0u64;
+
+    let (withdraw_quantums, lp_burn_amount) = if amount == 0 {
+        // withdraw all
+        let (
+            user_lp_tokens,
+            user_lp_tokens_decimal,
+            _outstanding_lp_tokens,
+            outstanding_lp_tokens_decimal,
+        ) = get_user_and_outstanding_lp_tokens(&deps, perp_id, &info.sender)?;
+        let ownership_fraction = user_lp_tokens_decimal / outstanding_lp_tokens_decimal;
+
+        let withdraw_value = ownership_fraction * subaccount_value;
+        let withdraw_quantums = decimal_to_native(withdraw_value, USDC_DENOM);
+        assert!(withdraw_quantums < u64::MAX.into()); // TODO: proper error
+
+        (withdraw_quantums.u128() as u64, user_lp_tokens)
+    } else {
+        // withdraw some
+        let (
+            _user_lp_tokens,
+            user_lp_tokens_decimal,
+            _outstanding_lp_tokens,
+            outstanding_lp_tokens_decimal,
+        ) = get_user_and_outstanding_lp_tokens(&deps, perp_id, &info.sender)?;
+        let ownership_fraction = user_lp_tokens_decimal / outstanding_lp_tokens_decimal;
+
+        let requested_withdraw_value = Decimal::from_atomics(amount, USDC_DENOM).unwrap();
+        let max_withdraw_value = ownership_fraction * subaccount_value;
+
+        assert!(requested_withdraw_value <= max_withdraw_value); // TODO: proper error
+        let withdraw_quantums = decimal_to_native(requested_withdraw_value, USDC_DENOM);
+        assert!(withdraw_quantums < u64::MAX.into()); // TODO: proper error
+
+        let lp_token_burn_ratio = requested_withdraw_value / max_withdraw_value;
+        let lp_burn_decimal = user_lp_tokens_decimal * lp_token_burn_ratio;
+        let lp_token_info = lp_token_info(deps.as_ref(), perp_id)?;
+        // always round up LP token burn
+        let lp_burn_tokens =
+            decimal_to_native(lp_burn_decimal, lp_token_info.decimals as u32) + Uint128::one();
+
+        (withdraw_quantums.u128() as u64, lp_burn_tokens)
+    };
 
     // burn withdrawer's LP tokens
     let sub_info = MessageInfo {
@@ -193,16 +235,15 @@ pub fn withdraw_from_vault(
         sub_info,
         perp_id,
         info.sender.to_string(),
-        burn_amount.into(),
+        lp_burn_amount.into(),
     )
     .unwrap();
-
 
     let withdraw = DydxMsg::WithdrawFromSubaccount {
         subaccount_number: perp_id,
         recipient: info.sender.to_string(),
         asset_id: USDC_ID,
-        quantums: 0,
+        quantums: withdraw_quantums,
     };
 
     // let event = Event::new("")
@@ -213,9 +254,9 @@ pub fn withdraw_from_vault(
     // .add_attribute("new_tokens", new_tokens.to_string());
 
     Ok(Response::new()
-    .add_attribute("method", "deposit_into_vault")
-    // .add_event(event)
-    .add_message(withdraw))
+        .add_attribute("method", "deposit_into_vault")
+        // .add_event(event)
+        .add_message(withdraw))
 }
 
 /// Places an order on dYdX.
@@ -471,36 +512,58 @@ fn burn_lp_tokens(
     recipient: String,
     amount: Uint128,
 ) -> ContractResult<()> {
-    // let mut config = LP_TOKENS
-    //     .may_load(deps.storage, perp_id)?
-    //     .ok_or(ContractError::Unauthorized {})?;
+    let mut config = LP_TOKENS
+        .may_load(deps.storage, perp_id)?
+        .ok_or(ContractError::Unauthorized {})?;
 
-    // if config
-    //     .mint
-    //     .as_ref()
-    //     .ok_or(ContractError::Unauthorized {})?
-    //     .minter
-    //     != info.sender
-    // {
-    //     return Err(ContractError::Unauthorized {});
-    // }
+    if config
+        .mint
+        .as_ref()
+        .ok_or(ContractError::Unauthorized {})?
+        .minter
+        != info.sender
+    {
+        return Err(ContractError::Unauthorized {});
+    }
 
-    // // update supply and enforce cap
-    // config.total_supply += amount;
-    // if let Some(limit) = config.get_cap() {
-    //     if config.total_supply > limit {
-    //         return Err(ContractError::CannotExceedCap {});
-    //     }
-    // }
-    // LP_TOKENS.save(deps.storage, perp_id, &config)?;
+    assert!(amount <= config.total_supply); // TODO: proper error
+                                            // update supply
+    config.total_supply -= amount;
+    LP_TOKENS.save(deps.storage, perp_id, &config)?;
 
-    // // add amount to recipient balance
-    // let rcpt_addr = deps.api.addr_validate(&recipient)?;
-    // LP_BALANCES.update(
-    //     deps.storage,
-    //     (perp_id, &rcpt_addr),
-    //     |balance: Option<Uint128>| -> StdResult<_> { Ok(balance.unwrap_or_default() + amount) },
-    // )?;
+    // remove amount from recipient balance
+    let rcpt_addr = deps.api.addr_validate(&recipient)?;
+    LP_BALANCES.update(
+        deps.storage,
+        (perp_id, &rcpt_addr),
+        |balance: Option<Uint128>| -> StdResult<_> { Ok(balance.unwrap_or_default() - amount) },
+    )?;
 
     Ok(())
+}
+
+/// Returns user and outstanding token balances.
+/// Returns both raw and decimal versions.
+fn get_user_and_outstanding_lp_tokens(
+    deps: &DepsMut<DydxQueryWrapper>,
+    perp_id: u32,
+    user_addr: &Addr,
+) -> ContractResult<(Uint128, Decimal, Uint128, Decimal)> {
+    let lp_token_info = lp_token_info(deps.as_ref(), perp_id)?;
+    let outstanding_lp_tokens =
+        Decimal::from_atomics(lp_token_info.total_supply, lp_token_info.decimals as u32).unwrap();
+
+    let ulp = LP_BALANCES.load(deps.storage, (perp_id, &user_addr))?;
+    let user_lp_tokens = Decimal::from_atomics(ulp, lp_token_info.decimals as u32).unwrap();
+    Ok((
+        ulp,
+        user_lp_tokens,
+        lp_token_info.total_supply,
+        outstanding_lp_tokens,
+    ))
+}
+
+/// convert a decimal to native Uint128. Implicitly rounds down
+fn decimal_to_native(decimal: Decimal, denom: u32) -> Uint128 {
+    decimal.numerator() / Uint128::new(10 as u128).pow(Decimal::DECIMAL_PLACES - denom)
 }

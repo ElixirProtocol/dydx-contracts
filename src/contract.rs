@@ -49,7 +49,10 @@ pub fn execute(
         ExecuteMsg::DepositIntoVault { perp_id } => {
             crate::execute::deposit_into_vault(deps, env, info, perp_id).map_err(Into::into)
         }
-        ExecuteMsg::WithdrawFromVault { amount, perp_id } => todo!(),
+        ExecuteMsg::WithdrawFromVault { amount, perp_id } => {
+            crate::execute::withdraw_from_vault(deps, env, info, amount, perp_id)
+                .map_err(Into::into)
+        }
         ExecuteMsg::PlaceOrder {
             subaccount_number,
             client_id,
@@ -99,17 +102,6 @@ pub fn execute(
             clob_pair_id,
             good_til_block_time,
         ),
-        // ExecuteMsg::A { perp_id } => crate::execute::a(deps, env, info, perp_id).map_err(Into::into),
-        // ExecuteMsg::B { perp_id } => crate::execute::b(deps, env, info, perp_id).map_err(Into::into),
-        // ExecuteMsg::C { perp_id } => crate::execute::c(deps, env, info, perp_id).map_err(Into::into),
-        // ExecuteMsg::D { perp_id } => crate::execute::d(deps, env, info, perp_id).map_err(Into::into),
-        // ExecuteMsg::E { perp_id } => crate::execute::c(deps, env, info, perp_id).map_err(Into::into),
-        // ExecuteMsg::PlaceOrder { order } => {
-        //     crate::execute::place_order(deps, info, order).map_err(Into::into)
-        // },
-        // ExecuteMsg::CancelOrder {  order_id, good_til_oneof } => {
-        //     crate::execute::cancel_order(deps, info, order_id, good_til_oneof).map_err(Into::into)
-        // },
     }
 }
 
@@ -124,6 +116,8 @@ pub fn query(deps: Deps<DydxQueryWrapper>, env: Env, msg: QueryMsg) -> StdResult
         DydxSubaccount { owner, number } => {
             to_json_binary(&crate::query::dydx_subaccount(deps, owner, number)?)
         }
-        Other { perp_id } => to_json_binary(&crate::query::other(deps, perp_id)?),
+        PerpClobDetails { perp_id } => {
+            to_json_binary(&crate::query::perp_clob_details(deps, perp_id)?)
+        }
     }
 }

@@ -28,7 +28,7 @@ pub enum QueryMsg {
     #[returns(DydxSubaccountResp)]
     DydxSubaccount { owner: String, number: u32 },
     #[returns(PerpetualClobDetailsResponse)]
-    Other { perp_id: u32 },
+    PerpClobDetails { perp_id: u32 },
 }
 
 #[cw_serde]
@@ -126,16 +126,13 @@ pub struct TokenInfoResponse {
 #[cfg(test)]
 mod tests {
     use crate::dydx::{
-        msg::{
-            DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce,
-        },
+        msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce},
         proto_structs::SubaccountId,
     };
 
     #[test]
 
     fn example_serialize_place_order() {
-        
         let side = OrderSide::Buy;
         let quantums = 1000000;
         let subticks = 100000;
