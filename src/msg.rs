@@ -76,11 +76,6 @@ pub enum ExecuteMsg {
         clob_pair_id: u32,
         good_til_block_time: u32,
     },
-    // A { perp_id: u32 },
-    // B { perp_id: u32 },
-    // C { perp_id: u32 },
-    // D { perp_id: u32 },
-    // E { perp_id: u32 },
 }
 
 #[cw_serde]
