@@ -27,22 +27,10 @@ pub fn test_setup() -> (ElixirTestApp, u64, Vec<Addr>) {
 
     let test_dydx = TestDydx {};
     // let wasm_keeper = DydxWasmKeeper::new(EXECUTE_MSG, QUERY_MSG, SUDO_MSG);
-    
-    let app_builder = AppBuilder {
-        api: MockApi::default(),
-        block: mock_env().block,
-        storage: MockStorage::new(),
-        bank: BankKeeper::new(),
-        wasm: WasmKeeper::new(),
-        custom: test_dydx,
-        staking: StakeKeeper::new(),
-        distribution: DistributionKeeper::new(),
-        ibc: IbcFailingModule::new(),
-        gov: GovFailingModule::new(),
-        stargate: StargateFailingModule::new(),
-    };
+    let app_builder = AppBuilder::new_custom();
 
     let mut app = app_builder
+        .with_custom(test_dydx)
         .build(|_, _, _| {});
     let code_id = app.store_code(b);
 
