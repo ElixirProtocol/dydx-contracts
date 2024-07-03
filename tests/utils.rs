@@ -1,21 +1,62 @@
-use std::fmt::Debug;
-use std::marker::PhantomData;
+use std::{borrow::BorrowMut, cell::RefCell};
+use std::collections::HashMap;
 
 use cosmwasm_std::{
-    testing::{mock_env, MockApi, MockStorage}, Addr, Api, Attribute, Binary, BlockInfo, CustomMsg, CustomQuery, Empty, Event, Querier, Record, Storage, WasmMsg, WasmQuery
+    coin,
+    testing::{MockApi, MockStorage},
+    to_json_binary, Addr, Api, Attribute, Binary, BlockInfo, CustomMsg, CustomQuery, Event,
+    Querier, Storage,
 };
-use cw_multi_test::{error::{bail, AnyResult}, App, AppBuilder, AppResponse, BankKeeper, Contract, ContractData, ContractWrapper, CosmosRouter, DistributionKeeper, Executor, GovFailingModule, IbcFailingModule, Module, StakeKeeper, StargateFailingModule, Wasm, WasmKeeper, WasmSudo
+use cosmwasm_std::{
+    from_json, QuerierResult, QuerierWrapper, QueryRequest, StdResult, SystemError,
 };
+use cw_multi_test::{
+    error::{bail, AnyResult},
+    App, AppBuilder, AppResponse, BankKeeper, Contract, ContractWrapper, CosmosRouter,
+    DistributionKeeper, Executor, GovFailingModule, IbcFailingModule, Module, StakeKeeper,
+    StargateFailingModule, SudoMsg, WasmKeeper,
+};
+use elixir_dydx_integration::dydx::proto_structs::{AssetPosition, SubaccountId};
+use elixir_dydx_integration::dydx::query::{DydxQuery, DydxQueryWrapper};
+use elixir_dydx_integration::msg::QueryMsg;
 use elixir_dydx_integration::{
     dydx::{
         msg::DydxMsg,
-        query::DydxQueryWrapper,
+        proto_structs::{
+            ClobPair, MarketPrice, Metadata, Perpetual, PerpetualClobDetails,
+            PerpetualClobMetadata, PerpetualMarketType, PerpetualParams, Status, Subaccount,
+        },
+        serializable_int::SerializableInt,
     },
-    msg::InstantiateMsg,
+    msg::{ExecuteMsg, InstantiateMsg},
 };
+use num_bigint::BigInt;
+use num_traits::Zero;
 use serde::de::DeserializeOwned;
 
-pub type ElixirTestApp = App<BankKeeper, MockApi, MockStorage, TestDydx, WasmKeeper<DydxMsg, DydxQueryWrapper>, StakeKeeper, DistributionKeeper, IbcFailingModule, GovFailingModule, StargateFailingModule>;
+pub const TEST_CONTRACT_ADDR: &str = "contract0";
+
+pub type ElixirTestApp = App<
+    BankKeeper,
+    MockApi,
+    MockStorage,
+    TestDydx,
+    WasmKeeper<DydxMsg, DydxQueryWrapper>,
+    StakeKeeper,
+    DistributionKeeper,
+    IbcFailingModule,
+    GovFailingModule,
+    StargateFailingModule,
+>;
+
+// /// No-op application initialization function.
+// pub fn build_router<BankT, CustomT, WasmT, StakingT, DistrT, IbcT, GovT, StargateT>(
+//     router: &mut Router<BankT, CustomT, WasmT, StakingT, DistrT, IbcT, GovT, StargateT>,
+//     api: &dyn Api,
+//     storage: &mut dyn Storage,
+// ) {
+//     let _ = (router, api, storage);
+// }
 
 pub fn test_setup() -> (ElixirTestApp, u64, Vec<Addr>) {
     let contract = ContractWrapper::new(
@@ -25,13 +66,21 @@ pub fn test_setup() -> (ElixirTestApp, u64, Vec<Addr>) {
     );
     let b: Box<dyn Contract<DydxMsg, DydxQueryWrapper>> = Box::new(contract);
 
-    let test_dydx = TestDydx {};
+    let test_dydx = TestDydx::new();
     // let wasm_keeper = DydxWasmKeeper::new(EXECUTE_MSG, QUERY_MSG, SUDO_MSG);
     let app_builder = AppBuilder::new_custom();
 
-    let mut app = app_builder
-        .with_custom(test_dydx)
-        .build(|_, _, _| {});
+    let mut app = app_builder.with_custom(test_dydx).build(|router, _, _| {
+        router.custom.mock_subaccounts.borrow_mut().insert(0, Subaccount {
+            id: Some(SubaccountId {
+                owner: TEST_CONTRACT_ADDR.to_string(),
+                number: 0,
+            }),
+            asset_positions: vec![],
+            perpetual_positions: vec![],
+            margin_enabled: true,
+        });
+    });
     let code_id = app.store_code(b);
 
     let mock_api = MockApi::default();
@@ -42,11 +91,7 @@ pub fn test_setup() -> (ElixirTestApp, u64, Vec<Addr>) {
     (app, code_id, vec![owner, user1, user2])
 }
 
-pub fn instantiate_contract(
-    app: &mut ElixirTestApp,
-    code_id: u64,
-    owner: Addr,
-) -> Addr {
+pub fn instantiate_contract(app: &mut ElixirTestApp, code_id: u64, owner: Addr) -> Addr {
     app.instantiate_contract(
         code_id,
         owner.clone(),
@@ -58,6 +103,58 @@ pub fn instantiate_contract(
         None,
     )
     .unwrap()
+}
+
+pub fn instantiate_contract_with_trader_and_vault(
+    app: &mut ElixirTestApp,
+    code_id: u64,
+    owner: Addr,
+    trader: Addr,
+) -> Addr {
+    let app_addr = app
+        .instantiate_contract(
+            code_id,
+            owner.clone(),
+            &InstantiateMsg {
+                owner: owner.to_string(),
+            },
+            &[],
+            "Contract",
+            None,
+        )
+        .unwrap();
+
+    let _ = app
+        .execute_contract(
+            owner.clone(),
+            app_addr.clone(),
+            &ExecuteMsg::SetTrader {
+                new_trader: trader.to_string(),
+            },
+            &[],
+        )
+        .unwrap();
+
+    let _ = app
+        .execute_contract(
+            trader.clone(),
+            app_addr.clone(),
+            &ExecuteMsg::CreateVault { perp_id: 0 },
+            &[],
+        )
+        .unwrap();
+
+    app_addr
+}
+
+pub fn mint_native(app: &mut ElixirTestApp, beneficiary: String, denom: String, amount: u128) {
+    app.sudo(cw_multi_test::SudoMsg::Bank(
+        cw_multi_test::BankSudo::Mint {
+            to_address: beneficiary,
+            amount: vec![coin(amount, denom)],
+        },
+    ))
+    .unwrap();
 }
 
 pub fn fetch_attributes(resp: &AppResponse, key: String) -> Vec<Attribute> {
@@ -77,13 +174,26 @@ pub fn fetch_response_events(resp: &AppResponse, event_name: String) -> Vec<Even
         .collect()
 }
 
-pub struct TestDydx {}
+pub struct TestDydx {
+    pub bank: BankKeeper,
+    /// Mock meant to mimic subaccount state on dYdX chain
+    mock_subaccounts: RefCell<HashMap<u32, Subaccount>>,
+}
 
-impl Module for TestDydx
-{
+impl TestDydx {
+    pub fn new() -> Self {
+        TestDydx {
+            bank: BankKeeper::new(),
+
+            mock_subaccounts: RefCell::new(HashMap::new()),
+        }
+    }
+}
+
+impl Module for TestDydx {
     type ExecT = DydxMsg;
     type QueryT = DydxQueryWrapper;
-    type SudoT = Empty;
+    type SudoT = SudoMsg;
 
     /// Runs any [ExecT](Self::ExecT) message, always returns a default response.
     fn execute<ExecC, QueryC>(
@@ -93,11 +203,78 @@ impl Module for TestDydx
         _router: &dyn CosmosRouter<ExecC = ExecC, QueryC = QueryC>,
         _block: &BlockInfo,
         _sender: Addr,
-        _msg: Self::ExecT,
-    ) -> AnyResult<AppResponse>        where
-    ExecC: CustomMsg + DeserializeOwned + 'static,
-    QueryC: CustomQuery + DeserializeOwned + 'static, {
-        Ok(AppResponse::default())
+        msg: Self::ExecT,
+    ) -> AnyResult<AppResponse>
+    where
+        ExecC: CustomMsg + DeserializeOwned + 'static,
+        QueryC: CustomQuery + DeserializeOwned + 'static,
+    {
+        match msg {
+            DydxMsg::DepositToSubaccount {
+                recipient,
+                asset_id,
+                quantums,
+            } => {
+                println!("DepositToSubaccount");
+                if recipient.number != 0 || recipient.owner != TEST_CONTRACT_ADDR.to_string() {
+                    bail!("tryingto deposit for an unsupported subaccount");
+                }
+
+                if asset_id != 0 {
+                    bail!("tryingto deposit something other than USDC");
+                }
+
+                let mut account_map = self.mock_subaccounts.borrow_mut();
+
+                let subaccount = account_map.get_mut(&0).unwrap();
+
+                if subaccount.asset_positions.len() == 0 {
+                    subaccount.asset_positions.push(AssetPosition {
+                        asset_id,
+                        quantums: SerializableInt::new(quantums.into()),
+                        index: 0,
+                    })
+                } else if subaccount.asset_positions.len() == 1 {
+                    let current_amount = subaccount.asset_positions[0].quantums.clone();
+                    let new_amount = SerializableInt::new(
+                        current_amount.i.checked_add(&quantums.into()).unwrap(),
+                    );
+                    subaccount.asset_positions[0].quantums = new_amount;
+                } else {
+                    bail!("subaccount should only have USDC asset");
+                }
+                Ok(AppResponse::default())
+            }
+            DydxMsg::WithdrawFromSubaccount {
+                subaccount_number,
+                recipient,
+                asset_id,
+                quantums,
+            } => Ok(AppResponse::default()),
+            DydxMsg::PlaceOrder {
+                subaccount_number,
+                client_id,
+                order_flags,
+                clob_pair_id,
+                side,
+                quantums,
+                subticks,
+                good_til_block_time,
+                time_in_force,
+                reduce_only,
+                client_metadata,
+                condition_type,
+                conditional_order_trigger_subticks,
+            } => todo!(),
+            DydxMsg::CancelOrder {
+                subaccount_number,
+                client_id,
+                order_flags,
+                clob_pair_id,
+                good_til_block_time,
+            } => todo!(),
+            _ => todo!(),
+        }
     }
 
     fn query(
@@ -106,24 +283,109 @@ impl Module for TestDydx
         _storage: &dyn Storage,
         _querier: &dyn Querier,
         _block: &BlockInfo,
-        _request: Self::QueryT,
+        request: Self::QueryT,
     ) -> AnyResult<Binary> {
-        bail!("query not implemented for CustomHandler")
+        match request.query_data {
+            DydxQuery::MarketPrice { id } => {
+                println!("{:?}", "MarketPrice");
+                if id != 0 {
+                    bail!("only market with id: 0 is supported for testing");
+                }
+                Ok(to_json_binary(&MarketPrice {
+                    id,
+                    exponent: -5,
+                    price: 6038418054,
+                })?)
+            }
+            DydxQuery::Subaccount { owner, number } => {
+                println!("Subaccount {} {}", owner, number);
+                if number != 0 || owner != TEST_CONTRACT_ADDR.to_string() {
+                    bail!("tryingto query for an unsupported subaccount");
+                }
+
+                let subaccount = self.mock_subaccounts.borrow().get(&number).unwrap().clone();
+                Ok(to_json_binary(&subaccount)?)
+            }
+            DydxQuery::PerpetualClobDetails { id } => {
+                println!("{:?}", "PerpetualClobDetails");
+                if id != 0 {
+                    bail!("only market with id: 0 is supported for testing");
+                }
+                Ok(to_json_binary(&PerpetualClobDetails {
+                    perpetual: Perpetual {
+                        params: PerpetualParams {
+                            id,
+                            ticker: "BTC-USD".to_string(),
+                            market_id: 0,
+                            atomic_resolution: -10,
+                            default_funding_ppm: 0,
+                            liquidity_tier: 0,
+                            market_type: PerpetualMarketType::Cross,
+                        },
+                        funding_index: SerializableInt::new(BigInt::zero()),
+                        open_interest: SerializableInt::new(BigInt::zero()),
+                    },
+                    clob_pair: ClobPair {
+                        id,
+                        metadata: Metadata::PerpetualClobMetadata(PerpetualClobMetadata {
+                            perpetual_id: 0,
+                        }),
+                        step_base_quantums: 1000000,
+                        subticks_per_tick: 100000,
+                        quantum_conversion_exponent: -9,
+                        status: Status::Active,
+                    },
+                })?)
+            }
+        }
     }
 
     fn sudo<ExecC, QueryC>(
         &self,
-        _api: &dyn Api,
-        _storage: &mut dyn Storage,
-        _router: &dyn CosmosRouter<ExecC = ExecC, QueryC = QueryC>,
-        _block: &BlockInfo,
-        _msg: Self::SudoT,
+        api: &dyn Api,
+        storage: &mut dyn Storage,
+        router: &dyn CosmosRouter<ExecC = ExecC, QueryC = QueryC>,
+        block: &BlockInfo,
+        msg: Self::SudoT,
     ) -> AnyResult<AppResponse>
     where
         ExecC: CustomMsg + DeserializeOwned + 'static,
         QueryC: CustomQuery + DeserializeOwned + 'static,
     {
-        bail!("sudo not implemented for CustomHandler")
+        match msg {
+            SudoMsg::Bank(bank_sudo) => self.bank.sudo(api, storage, router, block, bank_sudo),
+            SudoMsg::Custom(_) => todo!(),
+            SudoMsg::Staking(_) => todo!(),
+            SudoMsg::Wasm(_) => todo!(),
+        }
+    }
+}
+
+pub struct MockDydxQuerier<'a> {
+    pub querier: &'a QuerierWrapper<'a, DydxQueryWrapper>,
+}
+
+impl Querier for MockDydxQuerier<'_> {
+    fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
+        println!("got raw query");
+        // Here you can define custom behavior for specific queries
+        let request: StdResult<QueryRequest<QueryMsg>> = from_json(bin_request);
+        // if let Ok(req) = request {
+        //     match req {
+        //         // Match on specific query types here
+        //         QueryRequest::Bank(bank_query) => match bank_query {
+        //             // Custom handling of Bank queries
+        //             _ => self.base.raw_query(bin_request),
+        //         },
+        //         _ => self.base.raw_query(bin_request),
+        //     }
+        // } else {
+        Err(SystemError::InvalidRequest {
+            error: "Failed to parse query request".to_string(),
+            request: bin_request.into(),
+        })
+        .into()
+        // }
     }
 }
 
@@ -197,8 +459,6 @@ impl Module for TestDydx
 //         WASM_RAW.clone()
 //     }
 // }
-
-
 
 // pub struct DydxKeeper<ExecT, QueryT, SudoT>(
 //     PhantomData<(ExecT, QueryT, SudoT)>,
