@@ -116,8 +116,5 @@ pub fn query(deps: Deps<DydxQueryWrapper>, env: Env, msg: QueryMsg) -> StdResult
         DydxSubaccount { owner, number } => {
             to_json_binary(&crate::query::dydx_subaccount(deps, owner, number)?)
         }
-        PerpClobDetails { perp_id } => {
-            to_json_binary(&crate::query::perp_clob_details(deps, perp_id)?)
-        }
     }
 }

@@ -6,8 +6,8 @@ use crate::{
     error::{ContractError, ContractResult},
     execute::{USDC_DENOM, USDC_ID},
     msg::{
-        DydxSubaccountResp, LpTokenBalanceResponse, TokenInfoResponse, TraderResp,
-        VaultOwnershipResp, VaultStateResp,
+        DydxSubaccountResponse, LpTokenBalanceResponse, TokenInfoResponse, TraderResponse,
+        VaultOwnershipResponse, VaultStateResponse,
     },
     state::{LP_BALANCES, LP_TOKENS, STATE, VAULT_STATES_BY_PERP_ID},
 };
@@ -22,16 +22,16 @@ pub fn perp_clob_details(
     querier.query_perpetual_clob_details(perp_id)
 }
 
-pub fn trader(deps: Deps<DydxQueryWrapper>) -> StdResult<TraderResp> {
+pub fn trader(deps: Deps<DydxQueryWrapper>) -> StdResult<TraderResponse> {
     let state = STATE.load(deps.storage)?;
-    Ok(TraderResp {
+    Ok(TraderResponse {
         trader: state.trader,
     })
 }
 
-pub fn vault_state(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<VaultStateResp> {
+pub fn vault_state(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<VaultStateResponse> {
     let vault = VAULT_STATES_BY_PERP_ID.load(deps.storage, perp_id)?;
-    Ok(VaultStateResp {
+    Ok(VaultStateResponse {
         subaccount_owner: vault.subaccount_id.owner,
         subaccount_number: vault.subaccount_id.number,
         status: vault.status,
@@ -43,14 +43,14 @@ pub fn vault_ownership(
     env: Env,
     perp_id: u32,
     depositor: String,
-) -> StdResult<VaultOwnershipResp> {
+) -> StdResult<VaultOwnershipResponse> {
     let querier = DydxQuerier::new(&deps.querier);
     let vp = query_validated_dydx_position(&querier, &env, perp_id).unwrap();
 
     let raw_depositor_balance = balance(deps, perp_id, depositor)?;
     let lp_token_info = lp_token_info(deps, perp_id)?;
 
-    Ok(VaultOwnershipResp {
+    Ok(VaultOwnershipResponse {
         subaccount_owner: env.contract.address.to_string(),
         subaccount_number: perp_id,
         asset_usdc_value: vp.asset_usdc_value,
@@ -64,10 +64,10 @@ pub fn dydx_subaccount(
     deps: Deps<DydxQueryWrapper>,
     owner: String,
     number: u32,
-) -> StdResult<DydxSubaccountResp> {
+) -> StdResult<DydxSubaccountResponse> {
     let querier = DydxQuerier::new(&deps.querier);
     let subaccount = querier.query_subaccount(owner.clone(), number)?.subaccount;
-    Ok(DydxSubaccountResp { subaccount })
+    Ok(DydxSubaccountResponse { subaccount })
 }
 
 pub fn balance(

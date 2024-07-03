@@ -1,11 +1,10 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Decimal, Uint128};
+use cosmwasm_std::{Addr, CustomQuery, Decimal, Uint128};
 
 use crate::{
     dydx::{
         msg::{OrderConditionType, OrderSide, OrderTimeInForce},
-        proto_structs::Subaccount,
-        query::PerpetualClobDetailsResponse,
+        proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount},
     },
     state::VaultStatus,
 };
@@ -19,17 +18,17 @@ pub struct InstantiateMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(TraderResp)]
+    #[returns(TraderResponse)]
     Trader,
-    #[returns(VaultStateResp)]
+    #[returns(VaultStateResponse)]
     VaultState { perp_id: u32 },
-    #[returns(VaultOwnershipResp)]
+    #[returns(VaultOwnershipResponse)]
     VaultOwnership { perp_id: u32, depositor: String },
-    #[returns(DydxSubaccountResp)]
+    #[returns(DydxSubaccountResponse)]
     DydxSubaccount { owner: String, number: u32 },
-    #[returns(PerpetualClobDetailsResponse)]
-    PerpClobDetails { perp_id: u32 },
 }
+
+impl CustomQuery for QueryMsg {}
 
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -79,19 +78,19 @@ pub enum ExecuteMsg {
 }
 
 #[cw_serde]
-pub struct TraderResp {
+pub struct TraderResponse {
     pub trader: Addr,
 }
 
 #[cw_serde]
-pub struct VaultStateResp {
+pub struct VaultStateResponse {
     pub subaccount_owner: String,
     pub subaccount_number: u32,
     pub status: VaultStatus,
 }
 
 #[cw_serde]
-pub struct VaultOwnershipResp {
+pub struct VaultOwnershipResponse {
     pub subaccount_owner: String,
     pub subaccount_number: u32,
     pub asset_usdc_value: Decimal,
@@ -101,7 +100,7 @@ pub struct VaultOwnershipResp {
 }
 
 #[cw_serde]
-pub struct DydxSubaccountResp {
+pub struct DydxSubaccountResponse {
     pub subaccount: Subaccount,
 }
 
