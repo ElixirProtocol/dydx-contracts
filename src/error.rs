@@ -64,6 +64,15 @@ pub enum ContractError {
     #[error("Market with id: {perp_id} is not configured")]
     InvalidMarket { perp_id: u32 },
 
+    #[error("Tried to deposit an invalid coin: {coin_type}. Only USDC is accepted")]
+    InvalidCoin { coin_type: String },
+
+    #[error("Tried to deposit an invalid amount of: {coin_type}, {amount}")]
+    InvalidDepositAmount { coin_type: String, amount: u128 },
+
+    #[error("Only one coin type can be deposited at a time")]
+    CanOnlyDepositOneCointype {  },
+
     // Token errors
     #[error("Unauthorized")]
     Unauthorized {},

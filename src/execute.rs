@@ -100,11 +100,18 @@ pub fn deposit_into_vault(
 ) -> ContractResult<Response<DydxMsg>> {
     let subaccount_id = get_contract_subaccount_id(&env, perp_id);
     let querier = DydxQuerier::new(&deps.querier);
-
-    // assert that user is depositing USDC
-    assert!(info.funds.len() == 1);
-    assert!(info.funds[0].denom == USDC_COIN_TYPE); // TODO: error type
     let amount = info.funds[0].amount;
+
+    // assert that user is depositing only USDC with a non-zero amount
+    if info.funds.len() != 1 {
+        return Err(ContractError::CanOnlyDepositOneCointype { });
+    }
+    if info.funds[0].denom != USDC_COIN_TYPE {
+        return Err(ContractError::InvalidCoin { coin_type: info.funds[0].denom.clone() });
+    }
+    if amount <= Uint128::zero() {
+        return Err(ContractError::InvalidDepositAmount { coin_type: info.funds[0].denom.clone(), amount: amount.into() });
+    }
 
     // assert vault exists
 

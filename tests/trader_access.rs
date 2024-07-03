@@ -2,9 +2,9 @@ mod utils;
 
 #[cfg(test)]
 mod tests {
-    use cw_multi_test::Executor;
-    use elixir_dydx_integration::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TraderResp};
     use crate::utils::{fetch_attributes, fetch_response_events, instantiate_contract, test_setup};
+    use cw_multi_test::Executor;
+    use elixir_dydx_integration::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TraderResponse};
 
     #[test]
     fn can_instantiate_contract() {
@@ -13,16 +13,11 @@ mod tests {
 
         let app_addr = instantiate_contract(&mut app, code_id, owner.clone());
 
-        let resp: TraderResp = app
+        let resp: TraderResponse = app
             .wrap()
             .query_wasm_smart(app_addr, &QueryMsg::Trader {})
             .unwrap();
-        assert_eq!(
-            resp,
-            TraderResp {
-                trader: owner
-            }
-        );
+        assert_eq!(resp, TraderResponse { trader: owner });
     }
 
     #[test]
@@ -60,12 +55,14 @@ mod tests {
             .execute_contract(
                 owner.clone(),
                 app_addr.clone(),
-                &ExecuteMsg::SetTrader { new_trader: user1.to_string() },
+                &ExecuteMsg::SetTrader {
+                    new_trader: user1.to_string(),
+                },
                 &[],
             )
             .unwrap();
 
-        let traders_resp: TraderResp = app
+        let traders_resp: TraderResponse = app
             .wrap()
             .query_wasm_smart(app_addr, &QueryMsg::Trader {})
             .unwrap();
@@ -104,7 +101,9 @@ mod tests {
             .execute_contract(
                 user1.clone(),
                 app_addr.clone(),
-                &ExecuteMsg::SetTrader { new_trader: user1.to_string() },
+                &ExecuteMsg::SetTrader {
+                    new_trader: user1.to_string(),
+                },
                 &[],
             )
             .unwrap();
@@ -122,12 +121,14 @@ mod tests {
             .execute_contract(
                 owner.clone(),
                 app_addr.clone(),
-                &ExecuteMsg::SetTrader { new_trader: user1.to_string() },
+                &ExecuteMsg::SetTrader {
+                    new_trader: user1.to_string(),
+                },
                 &[],
             )
             .unwrap();
 
-        let traders_resp: TraderResp = app
+        let traders_resp: TraderResponse = app
             .wrap()
             .query_wasm_smart(app_addr.clone(), &QueryMsg::Trader {})
             .unwrap();
@@ -138,12 +139,14 @@ mod tests {
             .execute_contract(
                 owner.clone(),
                 app_addr.clone(),
-                &ExecuteMsg::SetTrader { new_trader: user1.to_string() },
+                &ExecuteMsg::SetTrader {
+                    new_trader: user1.to_string(),
+                },
                 &[],
             )
             .unwrap();
 
-        let traders_resp2: TraderResp = app
+        let traders_resp2: TraderResponse = app
             .wrap()
             .query_wasm_smart(app_addr.clone(), &QueryMsg::Trader {})
             .unwrap();
