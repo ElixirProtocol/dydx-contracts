@@ -113,18 +113,18 @@ pub enum GoodTilOneof {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DydxMsg {
-    DepositToSubaccount {
+    DepositToSubaccountV1 {
         recipient: SubaccountId,
         asset_id: u32,
         quantums: u64,
     },
-    WithdrawFromSubaccount {
+    WithdrawFromSubaccountV1 {
         subaccount_number: u32,
         recipient: String,
         asset_id: u32,
         quantums: u64,
     },
-    PlaceOrder {
+    PlaceOrderV1 {
         subaccount_number: u32,
         client_id: u32,
         order_flags: u32,
@@ -139,7 +139,7 @@ pub enum DydxMsg {
         condition_type: OrderConditionType,
         conditional_order_trigger_subticks: u64,
     },
-    CancelOrder {
+    CancelOrderV1 {
         subaccount_number: u32,
         client_id: u32,
         order_flags: u32,

@@ -4,7 +4,7 @@ use cosmwasm_std::{Addr, CustomQuery, Decimal, Uint128};
 use crate::{
     dydx::{
         msg::{OrderConditionType, OrderSide, OrderTimeInForce},
-        proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount},
+        proto_structs::Subaccount,
     },
     state::VaultStatus,
 };
@@ -119,10 +119,10 @@ pub struct TokenInfoResponse {
 
 #[cfg(test)]
 mod tests {
-    use crate::dydx::{
+    use crate::{dydx::{
         msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce},
         proto_structs::SubaccountId,
-    };
+    }, msg::QueryMsg};
 
     #[test]
 
@@ -136,7 +136,7 @@ mod tests {
         let condition_type = OrderConditionType::Unspecified;
         let conditional_order_trigger_subticks = 0;
 
-        let msg = DydxMsg::PlaceOrder {
+        let msg = DydxMsg::PlaceOrderV1 {
             subaccount_number: 0,
             client_id: 101,
             order_flags: 64,
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn example_serialize_deposit() {
-        let msg = DydxMsg::DepositToSubaccount {
+        let msg = DydxMsg::DepositToSubaccountV1 {
             recipient: SubaccountId {
                 owner: "dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j"
                     .to_string(),
@@ -168,6 +168,13 @@ mod tests {
             quantums: 0,
         };
 
+        let serialized_msg = serde_json::to_string(&msg).unwrap();
+        println!("{}", serialized_msg);
+    }
+
+    #[test]
+    fn example_serialize_trader() {
+        let msg = QueryMsg::Trader {};
         let serialized_msg = serde_json::to_string(&msg).unwrap();
         println!("{}", serialized_msg);
     }

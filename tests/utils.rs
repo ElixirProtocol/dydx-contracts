@@ -210,7 +210,7 @@ impl Module for TestDydx {
         QueryC: CustomQuery + DeserializeOwned + 'static,
     {
         match msg {
-            DydxMsg::DepositToSubaccount {
+            DydxMsg::DepositToSubaccountV1 {
                 recipient,
                 asset_id,
                 quantums,
@@ -245,13 +245,13 @@ impl Module for TestDydx {
                 }
                 Ok(AppResponse::default())
             }
-            DydxMsg::WithdrawFromSubaccount {
+            DydxMsg::WithdrawFromSubaccountV1 {
                 subaccount_number,
                 recipient,
                 asset_id,
                 quantums,
             } => Ok(AppResponse::default()),
-            DydxMsg::PlaceOrder {
+            DydxMsg::PlaceOrderV1 {
                 subaccount_number,
                 client_id,
                 order_flags,
@@ -266,7 +266,7 @@ impl Module for TestDydx {
                 condition_type,
                 conditional_order_trigger_subticks,
             } => todo!(),
-            DydxMsg::CancelOrder {
+            DydxMsg::CancelOrderV1 {
                 subaccount_number,
                 client_id,
                 order_flags,

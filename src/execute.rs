@@ -153,7 +153,7 @@ pub fn deposit_into_vault(
     // https://github.com/dydxprotocol/v4-chain/blob/c06db6fea945ad84fa4479df09078cee8feeba96/protocol/x/assets/types/asset.pb.go#L41
     // however for USDC this is the case:
     // https://github.com/dydxprotocol/v4-chain/blob/c06db6fea945ad84fa4479df09078cee8feeba96/protocol/x/assets/types/genesis.go#L18,
-    let deposit = DydxMsg::DepositToSubaccount {
+    let deposit = DydxMsg::DepositToSubaccountV1 {
         recipient: subaccount_id.clone(),
         asset_id: USDC_ID,
         quantums: amount.u128() as u64,
@@ -246,7 +246,7 @@ pub fn withdraw_from_vault(
     )
     .unwrap();
 
-    let withdraw = DydxMsg::WithdrawFromSubaccount {
+    let withdraw = DydxMsg::WithdrawFromSubaccountV1 {
         subaccount_number: perp_id,
         recipient: info.sender.to_string(),
         asset_id: USDC_ID,
@@ -311,7 +311,7 @@ pub fn place_order(
     // }
 
     // let event = order.get_place_event();
-    let place_order = DydxMsg::PlaceOrder {
+    let place_order = DydxMsg::PlaceOrderV1 {
         subaccount_number,
         client_id,
         order_flags,
@@ -360,7 +360,7 @@ pub fn cancel_order(
     // }
 
     // let event = order_id.get_cancel_event();
-    let cancel_order = DydxMsg::CancelOrder {
+    let cancel_order = DydxMsg::CancelOrderV1 {
         subaccount_number,
         client_id,
         order_flags,
