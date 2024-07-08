@@ -70,8 +70,14 @@ pub enum ContractError {
     #[error("Tried to deposit an invalid amount of: {coin_type}, {amount}")]
     InvalidDepositAmount { coin_type: String, amount: u128 },
 
+    #[error("Tried to withdraw an invalid amount of: {coin_type}, {amount}")]
+    InvalidWithdrawalAmount { coin_type: String, amount: u128 },
+
+    #[error("Could not find LP tokens with perp_id: {perp_id} for {user}")]
+    LpTokensNotFound { user: Addr, perp_id: u32 },
+
     #[error("Only one coin type can be deposited at a time")]
-    CanOnlyDepositOneCointype {  },
+    CanOnlyDepositOneCointype {},
 
     // Token errors
     #[error("Unauthorized")]

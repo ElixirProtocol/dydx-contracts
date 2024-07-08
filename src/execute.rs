@@ -104,13 +104,18 @@ pub fn deposit_into_vault(
 
     // assert that user is depositing only USDC with a non-zero amount
     if info.funds.len() != 1 {
-        return Err(ContractError::CanOnlyDepositOneCointype { });
+        return Err(ContractError::CanOnlyDepositOneCointype {});
     }
     if info.funds[0].denom != USDC_COIN_TYPE {
-        return Err(ContractError::InvalidCoin { coin_type: info.funds[0].denom.clone() });
+        return Err(ContractError::InvalidCoin {
+            coin_type: info.funds[0].denom.clone(),
+        });
     }
     if amount <= Uint128::zero() {
-        return Err(ContractError::InvalidDepositAmount { coin_type: info.funds[0].denom.clone(), amount: amount.into() });
+        return Err(ContractError::InvalidDepositAmount {
+            coin_type: info.funds[0].denom.clone(),
+            amount: amount.into(),
+        });
     }
 
     // assert vault exists
@@ -202,7 +207,12 @@ pub fn withdraw_from_vault(
 
         let withdraw_value = ownership_fraction * subaccount_value;
         let withdraw_quantums = decimal_to_native(withdraw_value, USDC_DENOM);
-        assert!(withdraw_quantums < u64::MAX.into()); // TODO: proper error
+        if withdraw_quantums >= u64::MAX.into() {
+            return Err(ContractError::InvalidWithdrawalAmount {
+                coin_type: USDC_COIN_TYPE.to_string(),
+                amount: amount.into(),
+            });
+        }
 
         (withdraw_quantums.u128() as u64, user_lp_tokens)
     } else {
@@ -218,9 +228,13 @@ pub fn withdraw_from_vault(
         let requested_withdraw_value = Decimal::from_atomics(amount, USDC_DENOM).unwrap();
         let max_withdraw_value = ownership_fraction * subaccount_value;
 
-        assert!(requested_withdraw_value <= max_withdraw_value); // TODO: proper error
         let withdraw_quantums = decimal_to_native(requested_withdraw_value, USDC_DENOM);
-        assert!(withdraw_quantums < u64::MAX.into()); // TODO: proper error
+        if withdraw_quantums >= u64::MAX.into() || requested_withdraw_value > max_withdraw_value {
+            return Err(ContractError::InvalidWithdrawalAmount {
+                coin_type: USDC_COIN_TYPE.to_string(),
+                amount: amount.into(),
+            });
+        }
 
         let lp_token_burn_ratio = requested_withdraw_value / max_withdraw_value;
         let lp_burn_decimal = user_lp_tokens_decimal * lp_token_burn_ratio;
@@ -560,7 +574,15 @@ fn get_user_and_outstanding_lp_tokens(
     let outstanding_lp_tokens =
         Decimal::from_atomics(lp_token_info.total_supply, lp_token_info.decimals as u32).unwrap();
 
-    let ulp = LP_BALANCES.load(deps.storage, (perp_id, &user_addr))?;
+    let ulp = match LP_BALANCES.may_load(deps.storage, (perp_id, &user_addr))? {
+        Some(x) => x,
+        None => {
+            return Err(ContractError::LpTokensNotFound {
+                user: user_addr.clone(),
+                perp_id,
+            })
+        }
+    };
     let user_lp_tokens = Decimal::from_atomics(ulp, lp_token_info.decimals as u32).unwrap();
     Ok((
         ulp,

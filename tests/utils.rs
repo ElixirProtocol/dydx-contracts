@@ -1,5 +1,5 @@
-use std::{borrow::BorrowMut, cell::RefCell};
 use std::collections::HashMap;
+use std::{borrow::BorrowMut, cell::RefCell};
 
 use cosmwasm_std::{
     coin,
@@ -71,15 +71,18 @@ pub fn test_setup() -> (ElixirTestApp, u64, Vec<Addr>) {
     let app_builder = AppBuilder::new_custom();
 
     let mut app = app_builder.with_custom(test_dydx).build(|router, _, _| {
-        router.custom.mock_subaccounts.borrow_mut().insert(0, Subaccount {
-            id: Some(SubaccountId {
-                owner: TEST_CONTRACT_ADDR.to_string(),
-                number: 0,
-            }),
-            asset_positions: vec![],
-            perpetual_positions: vec![],
-            margin_enabled: true,
-        });
+        router.custom.mock_subaccounts.borrow_mut().insert(
+            0,
+            Subaccount {
+                id: Some(SubaccountId {
+                    owner: TEST_CONTRACT_ADDR.to_string(),
+                    number: 0,
+                }),
+                asset_positions: vec![],
+                perpetual_positions: vec![],
+                margin_enabled: true,
+            },
+        );
     });
     let code_id = app.store_code(b);
 
@@ -87,8 +90,9 @@ pub fn test_setup() -> (ElixirTestApp, u64, Vec<Addr>) {
     let owner = mock_api.addr_make("owner");
     let user1 = mock_api.addr_make("user1");
     let user2 = mock_api.addr_make("user2");
+    let user3 = mock_api.addr_make("user3");
 
-    (app, code_id, vec![owner, user1, user2])
+    (app, code_id, vec![owner, user1, user2, user3])
 }
 
 pub fn instantiate_contract(app: &mut ElixirTestApp, code_id: u64, owner: Addr) -> Addr {
@@ -250,7 +254,35 @@ impl Module for TestDydx {
                 recipient,
                 asset_id,
                 quantums,
-            } => Ok(AppResponse::default()),
+            } => {
+                println!("WithdrawFromSubaccountV1");
+                if subaccount_number != 0 {
+                    bail!("tryingto withdraw from an unsupported subaccount");
+                }
+                if recipient == TEST_CONTRACT_ADDR.to_string() {
+                    bail!("tryingto withdraw to the smart contract");
+                }
+                if asset_id != 0 {
+                    bail!("tryingto withdraw something other than USDC");
+                }
+
+                let mut account_map = self.mock_subaccounts.borrow_mut();
+
+                let subaccount = account_map.get_mut(&0).unwrap();
+
+                if subaccount.asset_positions.len() == 0 {
+                    bail!("tryingto withdraw without any deposits");
+                } else if subaccount.asset_positions.len() == 1 {
+                    let current_amount = subaccount.asset_positions[0].quantums.clone();
+                    let new_amount = SerializableInt::new(
+                        current_amount.i.checked_sub(&quantums.into()).unwrap(),
+                    );
+                    subaccount.asset_positions[0].quantums = new_amount;
+                } else {
+                    bail!("subaccount should only have USDC asset");
+                }
+                Ok(AppResponse::default())
+            }
             DydxMsg::PlaceOrderV1 {
                 subaccount_number,
                 client_id,

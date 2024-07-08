@@ -119,10 +119,13 @@ pub struct TokenInfoResponse {
 
 #[cfg(test)]
 mod tests {
-    use crate::{dydx::{
-        msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce},
-        proto_structs::SubaccountId,
-    }, msg::QueryMsg};
+    use crate::{
+        dydx::{
+            msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce},
+            proto_structs::SubaccountId,
+        },
+        msg::QueryMsg,
+    };
 
     #[test]
 
