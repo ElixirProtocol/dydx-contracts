@@ -4,8 +4,15 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount},
-    route::DydxRoute,
 };
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DydxRoute {
+    MarketPrice,
+    Subaccount,
+    PerpetualClobDetails,
+}
 
 /// SeiQueryWrapper is an override of QueryRequest::Custom to access Sei-specific modules
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
