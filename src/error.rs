@@ -15,7 +15,7 @@ pub enum ContractError {
     NewTraderMustNotBeCurrentTrader,
     #[error("An invalid address was provided: {addr}")]
     InvalidAddress { addr: String },
-    #[error("{addr} cannot submit trades")]
+    #[error("{addr} cannot place/cancel trades")]
     SenderIsNotTrader { addr: String },
     #[error("{sender} does not have permission to create vaults")]
     SenderCannotCreateVault { sender: Addr },

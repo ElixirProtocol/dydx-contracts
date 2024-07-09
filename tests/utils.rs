@@ -49,15 +49,6 @@ pub type ElixirTestApp = App<
     StargateFailingModule,
 >;
 
-// /// No-op application initialization function.
-// pub fn build_router<BankT, CustomT, WasmT, StakingT, DistrT, IbcT, GovT, StargateT>(
-//     router: &mut Router<BankT, CustomT, WasmT, StakingT, DistrT, IbcT, GovT, StargateT>,
-//     api: &dyn Api,
-//     storage: &mut dyn Storage,
-// ) {
-//     let _ = (router, api, storage);
-// }
-
 pub fn test_setup() -> (ElixirTestApp, u64, Vec<Addr>) {
     let contract = ContractWrapper::new(
         elixir_dydx_integration::contract::execute,
@@ -182,14 +173,25 @@ pub struct TestDydx {
     pub bank: BankKeeper,
     /// Mock meant to mimic subaccount state on dYdX chain
     mock_subaccounts: RefCell<HashMap<u32, Subaccount>>,
+    /// Mock of orders for a subaccount. Keyed on subaccount number, value is client order id
+    mock_orders: RefCell<HashMap<u32, Vec<u32>>>,
 }
 
 impl TestDydx {
     pub fn new() -> Self {
         TestDydx {
             bank: BankKeeper::new(),
-
+            mock_orders: RefCell::new(HashMap::new()),
             mock_subaccounts: RefCell::new(HashMap::new()),
+        }
+    }
+
+    pub fn has_order(&self, subaccount_number: u32, client_order_id: u32) -> bool {
+        let mut order_map = self.mock_orders.borrow();
+        if let Some(orders) = order_map.get(&subaccount_number) {
+            orders.contains(&client_order_id)
+        } else {
+            false
         }
     }
 }
@@ -286,26 +288,46 @@ impl Module for TestDydx {
             DydxMsg::PlaceOrderV1 {
                 subaccount_number,
                 client_id,
-                order_flags,
-                clob_pair_id,
-                side,
-                quantums,
-                subticks,
-                good_til_block_time,
-                time_in_force,
-                reduce_only,
-                client_metadata,
-                condition_type,
-                conditional_order_trigger_subticks,
-            } => todo!(),
+                order_flags: _,
+                clob_pair_id: _,
+                side: _,
+                quantums: _,
+                subticks: _,
+                good_til_block_time: _,
+                time_in_force: _,
+                reduce_only: _,
+                client_metadata: _,
+                condition_type: _,
+                conditional_order_trigger_subticks: _,
+            } => {
+                println!("PlaceOrderV1");
+
+                // Note that this mock is very simplistic and only handles orders for subaccounts owned by the contract.
+                let mut order_map = self.mock_orders.borrow_mut();
+                let order_client_ids = order_map.entry(subaccount_number).or_insert(vec![]);
+
+                if !order_client_ids.contains(&client_id) {
+                    order_client_ids.push(client_id);
+                }
+
+                Ok(AppResponse::default())
+            }
             DydxMsg::CancelOrderV1 {
                 subaccount_number,
                 client_id,
                 order_flags,
                 clob_pair_id,
                 good_til_block_time,
-            } => todo!(),
-            _ => todo!(),
+            } => {
+                println!("CancelOrderV1");
+
+                let mut order_map = self.mock_orders.borrow_mut();
+                let order_client_ids = order_map.entry(subaccount_number).or_insert(vec![]);
+                order_client_ids.retain(|&x| x != client_id);
+
+                Ok(AppResponse::default())
+            }
+            _ => panic!("unknown message"),
         }
     }
 

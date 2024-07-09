@@ -3,17 +3,13 @@ mod utils;
 #[cfg(test)]
 mod tests {
     use crate::utils::{
-        fetch_attributes, fetch_response_events, instantiate_contract,
         instantiate_contract_with_trader_and_vault, mint_native, test_setup, TEST_CONTRACT_ADDR,
     };
     use cosmwasm_std::{Coin, Decimal, Uint128};
     use cw_multi_test::Executor;
     use elixir_dydx_integration::{
-        execute::{USDC_COIN_TYPE, USDC_DENOM},
-        msg::{
-            DydxSubaccountResponse, ExecuteMsg, InstantiateMsg, QueryMsg, TraderResponse,
-            VaultOwnershipResponse,
-        },
+        execute::USDC_COIN_TYPE,
+        msg::{DydxSubaccountResponse, ExecuteMsg, QueryMsg, VaultOwnershipResponse},
     };
 
     #[test]
