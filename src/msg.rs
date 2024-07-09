@@ -3,8 +3,8 @@ use cosmwasm_std::{Addr, CustomQuery, Decimal, Uint128};
 
 use crate::{
     dydx::{
-        msg::{OrderConditionType, OrderSide, OrderTimeInForce},
-        proto_structs::Subaccount,
+        msg::{OrderSide, OrderTimeInForce},
+        proto_structs::{OrderBatch, Subaccount},
     },
     state::VaultStatus,
 };
@@ -65,7 +65,6 @@ pub enum ExecuteMsg {
         time_in_force: OrderTimeInForce,
         reduce_only: bool,
         client_metadata: u32,
-        condition_type: OrderConditionType,
         conditional_order_trigger_subticks: u64,
     },
     CancelOrder {
@@ -74,6 +73,11 @@ pub enum ExecuteMsg {
         order_flags: u32,
         clob_pair_id: u32,
         good_til_block_time: u32,
+    },
+    BatchCancel {
+        subaccount_number: u32,
+        order_batches: Vec<OrderBatch>,
+        good_til_block: u32,
     },
 }
 
@@ -122,7 +126,7 @@ mod tests {
     use crate::{
         dydx::{
             msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce},
-            proto_structs::SubaccountId,
+            proto_structs::{OrderBatch, SubaccountId},
         },
         msg::QueryMsg,
     };
@@ -160,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn example_serialize_deposit() {
+    fn example_serialize_dydx_deposit() {
         let msg = DydxMsg::DepositToSubaccountV1 {
             recipient: SubaccountId {
                 owner: "dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j"
@@ -169,6 +173,21 @@ mod tests {
             },
             asset_id: 0,
             quantums: 0,
+        };
+
+        let serialized_msg = serde_json::to_string(&msg).unwrap();
+        println!("{}", serialized_msg);
+    }
+
+    #[test]
+    fn example_serialize_dydx_batch_cancel() {
+        let msg = DydxMsg::BatchCancelV1 {
+            subaccount_number: 0,
+            short_term_cancels: vec![OrderBatch {
+                clob_pair_id: 0,
+                client_ids: vec![101, 102],
+            }],
+            good_til_block: 123,
         };
 
         let serialized_msg = serde_json::to_string(&msg).unwrap();

@@ -4,9 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use strum_macros::{Display, EnumString};
 
-use super::proto_structs::SubaccountId;
-
-// TODO(OTE-407): handle issue with `GoodTilOneof` in `PlaceOrder` and `CancelOrder` not serializing correctly
+use super::proto_structs::{OrderBatch, SubaccountId};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Transfer {
@@ -145,6 +143,11 @@ pub enum DydxMsg {
         order_flags: u32,
         clob_pair_id: u32,
         good_til_block_time: u32,
+    },
+    BatchCancelV1 {
+        subaccount_number: u32,
+        short_term_cancels: Vec<OrderBatch>,
+        good_til_block: u32,
     },
 }
 

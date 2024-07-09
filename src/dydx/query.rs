@@ -2,9 +2,7 @@ use cosmwasm_std::CustomQuery;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::{
-    proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount},
-};
+use super::proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]

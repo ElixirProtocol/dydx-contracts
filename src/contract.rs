@@ -65,7 +65,6 @@ pub fn execute(
             time_in_force,
             reduce_only,
             client_metadata,
-            condition_type,
             conditional_order_trigger_subticks,
         } => crate::execute::place_order(
             deps,
@@ -82,7 +81,6 @@ pub fn execute(
             time_in_force,
             reduce_only,
             client_metadata,
-            condition_type,
             conditional_order_trigger_subticks,
         )
         .map_err(Into::into),
@@ -101,6 +99,18 @@ pub fn execute(
             order_flags,
             clob_pair_id,
             good_til_block_time,
+        ),
+        ExecuteMsg::BatchCancel {
+            subaccount_number,
+            order_batches,
+            good_til_block,
+        } => crate::execute::batch_cancel(
+            deps,
+            env,
+            info,
+            subaccount_number,
+            order_batches,
+            good_til_block,
         ),
     }
 }

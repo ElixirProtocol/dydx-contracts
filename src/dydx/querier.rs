@@ -3,7 +3,8 @@ use cosmwasm_std::{QuerierWrapper, StdResult};
 use super::{
     proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount},
     query::{
-        DydxQuery, DydxQueryWrapper, DydxRoute, MarketPriceResponse, PerpetualClobDetailsResponse, SubaccountResponse
+        DydxQuery, DydxQueryWrapper, DydxRoute, MarketPriceResponse, PerpetualClobDetailsResponse,
+        SubaccountResponse,
     },
 };
 

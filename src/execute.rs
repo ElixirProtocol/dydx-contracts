@@ -4,7 +4,7 @@ use cosmwasm_std::{
 use cw20_base::state::{MinterData, TokenInfo};
 
 use crate::dydx::msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce};
-use crate::dydx::proto_structs::SubaccountId;
+use crate::dydx::proto_structs::{OrderBatch, SubaccountId};
 use crate::dydx::querier::DydxQuerier;
 use crate::dydx::query::DydxQueryWrapper;
 use crate::error::ContractResult;
@@ -297,7 +297,6 @@ pub fn place_order(
     time_in_force: OrderTimeInForce,
     reduce_only: bool,
     client_metadata: u32,
-    condition_type: OrderConditionType,
     conditional_order_trigger_subticks: u64,
 ) -> ContractResult<Response<DydxMsg>> {
     let state = STATE.load(deps.storage)?;
@@ -337,7 +336,7 @@ pub fn place_order(
         time_in_force,
         reduce_only,
         client_metadata,
-        condition_type,
+        condition_type: OrderConditionType::Unspecified,
         conditional_order_trigger_subticks,
     };
 
@@ -386,6 +385,39 @@ pub fn cancel_order(
         .add_attribute("method", "cancel_order")
         // .add_event(event)
         .add_message(cancel_order))
+}
+
+/// Cancels a batch of dYdX orders.
+/// Requires the sender to be the trader.
+/// Cancels will be performed optimistically even if some cancels are invalid or fail.
+pub fn batch_cancel(
+    deps: DepsMut<DydxQueryWrapper>,
+    _env: Env,
+    info: MessageInfo,
+    subaccount_number: u32,
+    order_batches: Vec<OrderBatch>,
+    good_til_block: u32,
+) -> ContractResult<Response<DydxMsg>> {
+    let state = STATE.load(deps.storage)?;
+
+    // validate sender (must be configured trader)
+    if info.sender != &state.trader {
+        return Err(ContractError::SenderIsNotTrader {
+            addr: info.sender.to_string(),
+        });
+    }
+
+    // let event = order_id.get_batch_cancel_event();
+    let batch_cancel = DydxMsg::BatchCancelV1 {
+        subaccount_number: subaccount_number,
+        short_term_cancels: order_batches,
+        good_til_block,
+    };
+
+    Ok(Response::new()
+        .add_attribute("method", "batch_cancel")
+        // .add_event(event)
+        .add_message(batch_cancel))
 }
 
 /// Freezes the vault (prevents placing any orders). For now, deposits/withdrawals and cancelling orders are allowed.
