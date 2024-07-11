@@ -49,9 +49,16 @@ pub enum ExecuteMsg {
     DepositIntoVault {
         perp_id: u32,
     },
-    WithdrawFromVault {
+    RequestWithdrawal {
         perp_id: u32,
-        amount: u64,
+        usdc_amount: u64,
+    },
+    CancelWithdrawalRequests {
+        perp_id: u32,
+    },
+    ProcessWithdrawals {
+        perp_id: u32,
+        max_num_withdrawals: u32,
     },
     PlaceOrder {
         subaccount_number: u32,

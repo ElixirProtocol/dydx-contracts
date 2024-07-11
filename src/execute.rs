@@ -1,5 +1,6 @@
 use cosmwasm_std::{
-    Addr, Decimal, DepsMut, Env, Event, Fraction, MessageInfo, Response, StdResult, Uint128,
+    Addr, CheckedMultiplyFractionError, Decimal, DepsMut, Env, Event, Fraction, MessageInfo,
+    Response, StdResult, Uint128,
 };
 use cw20_base::state::{MinterData, TokenInfo};
 
@@ -8,8 +9,12 @@ use crate::dydx::proto_structs::{OrderBatch, SubaccountId};
 use crate::dydx::querier::DydxQuerier;
 use crate::dydx::query::DydxQueryWrapper;
 use crate::error::ContractResult;
+use crate::msg::TokenInfoResponse;
 use crate::query::{lp_token_info, query_validated_dydx_position};
-use crate::state::{VaultState, VaultStatus, LP_BALANCES, LP_TOKENS, VAULT_STATES_BY_PERP_ID};
+use crate::state::{
+    VaultState, VaultStatus, Withdrawal, LP_BALANCES, LP_TOKENS, VAULT_STATES_BY_PERP_ID,
+    WITHDRAWAL_QUEUES,
+};
 use crate::{error::ContractError, state::STATE};
 
 pub const USDC_ID: u32 = 0;
@@ -70,6 +75,7 @@ pub fn create_vault(
 
     // save new vault
     VAULT_STATES_BY_PERP_ID.save(deps.storage, perp_id, &vault_state)?;
+    WITHDRAWAL_QUEUES.save(deps.storage, perp_id, &Vec::with_capacity(10))?;
 
     // create LP token using cw20-base format
     let data = TokenInfo {
@@ -136,7 +142,7 @@ pub fn deposit_into_vault(
     } else {
         let token_amt_decimal = (share_value_fraction * outstanding_lp_tokens)
             / (Decimal::one() - share_value_fraction);
-        decimal_to_native(token_amt_decimal, lp_token_info.decimals as u32)
+        decimal_to_native_round_down(token_amt_decimal, lp_token_info.decimals as u32).unwrap()
     };
 
     // mint tokens to depositor
@@ -179,105 +185,210 @@ pub fn deposit_into_vault(
         .add_message(deposit))
 }
 
-/// User withdrawal from the LP vault. Requires that the user has enough LP tokens to support their requested withdrawal.
-/// If 0 is passed as the withdrawal_amount, the max possible withdrawal will be executed.
-pub fn withdraw_from_vault(
+/// Requests a user withdrawal from the LP vault. Requires that the user has enough LP tokens to support their requested withdrawal.
+/// If 0 is passed as the usdc_amount, the max possible withdrawal will be requested.
+/// Since withdrawals are processed some time in the future, a user may receive more/less than they initially requested.
+pub fn request_withdrawal(
     deps: DepsMut<DydxQueryWrapper>,
     env: Env,
     info: MessageInfo,
-    amount: u64,
+    usdc_amount: u64,
     perp_id: u32,
 ) -> ContractResult<Response<DydxMsg>> {
     let querier = DydxQuerier::new(&deps.querier);
 
-    let vp = query_validated_dydx_position(&querier, &env, perp_id)?;
-    let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
+    let (
+        user_lp_tokens,
+        user_lp_tokens_decimal,
+        _outstanding_lp_tokens,
+        outstanding_lp_tokens_decimal,
+        lp_token_info,
+    ) = get_user_and_outstanding_lp_tokens(&deps, perp_id, &info.sender)?;
 
-    // derive withdrawal value and LP burn amount
-
-    let (withdraw_quantums, lp_burn_amount) = if amount == 0 {
+    let lp_token_amount = if usdc_amount == 0 {
         // withdraw all
-        let (
-            user_lp_tokens,
-            user_lp_tokens_decimal,
-            _outstanding_lp_tokens,
-            outstanding_lp_tokens_decimal,
-        ) = get_user_and_outstanding_lp_tokens(&deps, perp_id, &info.sender)?;
-        let ownership_fraction = user_lp_tokens_decimal / outstanding_lp_tokens_decimal;
-
-        let withdraw_value = ownership_fraction * subaccount_value;
-        let withdraw_quantums = decimal_to_native(withdraw_value, USDC_DENOM);
-        if withdraw_quantums >= u64::MAX.into() {
-            return Err(ContractError::InvalidWithdrawalAmount {
-                coin_type: USDC_COIN_TYPE.to_string(),
-                amount: amount.into(),
-            });
-        }
-
-        (withdraw_quantums.u128() as u64, user_lp_tokens)
+        user_lp_tokens
     } else {
         // withdraw some
-        let (
-            _user_lp_tokens,
-            user_lp_tokens_decimal,
-            _outstanding_lp_tokens,
-            outstanding_lp_tokens_decimal,
-        ) = get_user_and_outstanding_lp_tokens(&deps, perp_id, &info.sender)?;
+        let vp = query_validated_dydx_position(&querier, &env, perp_id)?;
+        let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
         let ownership_fraction = user_lp_tokens_decimal / outstanding_lp_tokens_decimal;
 
-        let requested_withdraw_value = Decimal::from_atomics(amount, USDC_DENOM).unwrap();
+        let requested_withdraw_value = Decimal::from_atomics(usdc_amount, USDC_DENOM).unwrap();
         let max_withdraw_value = ownership_fraction * subaccount_value;
 
-        let withdraw_quantums = decimal_to_native(requested_withdraw_value, USDC_DENOM);
-        if withdraw_quantums >= u64::MAX.into() || requested_withdraw_value > max_withdraw_value {
+        let lp_token_ratio = requested_withdraw_value / max_withdraw_value;
+        let withdraw_lp_tokens_decimal = user_lp_tokens_decimal * lp_token_ratio;
+
+        if withdraw_lp_tokens_decimal > user_lp_tokens_decimal {
             return Err(ContractError::InvalidWithdrawalAmount {
                 coin_type: USDC_COIN_TYPE.to_string(),
-                amount: amount.into(),
+                amount: usdc_amount.into(),
             });
         }
 
-        let lp_token_burn_ratio = requested_withdraw_value / max_withdraw_value;
-        let lp_burn_decimal = user_lp_tokens_decimal * lp_token_burn_ratio;
-        let lp_token_info = lp_token_info(deps.as_ref(), perp_id)?;
-        // always round up LP token burn
-        let lp_burn_tokens =
-            decimal_to_native(lp_burn_decimal, lp_token_info.decimals as u32) + Uint128::one();
-
-        (withdraw_quantums.u128() as u64, lp_burn_tokens)
+        let lp_tokens =
+            decimal_to_native_round_up(withdraw_lp_tokens_decimal, lp_token_info.decimals as u32)
+                .unwrap();
+        lp_tokens
     };
 
-    // burn withdrawer's LP tokens
+    // put LP tokens into queue
+    let withdrawal = Withdrawal {
+        recipient_addr: info.sender.clone(),
+        lp_tokens: lp_token_amount,
+    };
+
+    let mut withdrawal_queue = WITHDRAWAL_QUEUES
+        .may_load(deps.storage, perp_id)?
+        .ok_or(ContractError::MissingWithdrawalQueue { perp_id })?;
+    withdrawal_queue.push(withdrawal);
+    WITHDRAWAL_QUEUES.save(deps.storage, perp_id, &withdrawal_queue)?;
+
     let sub_info = MessageInfo {
         sender: env.contract.address.clone(),
         funds: vec![],
     };
-    burn_lp_tokens(
+
+    // transfer LP tokens from the withdrawer to the contract temporarily
+    transfer_lp_tokens_to_withdrawal_queue(
         deps,
         sub_info,
         perp_id,
         info.sender.to_string(),
-        lp_burn_amount.into(),
-    )
-    .unwrap();
+        lp_token_amount,
+    )?;
 
-    let withdraw = DydxMsg::WithdrawFromSubaccountV1 {
-        subaccount_number: perp_id,
-        recipient: info.sender.to_string(),
-        asset_id: USDC_ID,
-        quantums: withdraw_quantums,
+    Ok(
+        Response::new().add_attribute("method", "request_withdrawal"), // .add_event(event)
+    )
+}
+
+/// Cancels all user withdrawal requests from the LP vault.
+/// Returns the user's LP tokens to them.
+pub fn cancel_withdrawal_requests(
+    deps: DepsMut<DydxQueryWrapper>,
+    env: Env,
+    info: MessageInfo,
+    perp_id: u32,
+) -> ContractResult<Response<DydxMsg>> {
+    let mut withdrawal_queue = WITHDRAWAL_QUEUES
+        .may_load(deps.storage, perp_id)?
+        .ok_or(ContractError::MissingWithdrawalQueue { perp_id })?;
+
+    let mut i = 0;
+    let mut restored_lp_tokens = Uint128::zero();
+    while i < withdrawal_queue.len() {
+        if withdrawal_queue[i].recipient_addr == info.sender {
+            restored_lp_tokens += withdrawal_queue[i].lp_tokens;
+            withdrawal_queue.remove(i);
+        } else {
+            i += 1;
+        }
+    }
+    WITHDRAWAL_QUEUES.save(deps.storage, perp_id, &withdrawal_queue)?;
+
+    let sub_info = MessageInfo {
+        sender: env.contract.address.clone(),
+        funds: vec![],
     };
 
-    // let event = Event::new("")
-    // .add_attribute("subaccount_value", subaccount_value.to_string())
-    // .add_attribute("withdraw_value", deposit_value.to_string())
-    // .add_attribute("share_value_fraction", share_value_fraction.to_string())
-    // .add_attribute("outstanding_tokens", outstanding_tokens.to_string())
-    // .add_attribute("new_tokens", new_tokens.to_string());
+    if restored_lp_tokens > Uint128::zero() {
+        // transfer LP tokens from the contract to the withdrawer
+        transfer_lp_tokens_from_withdrawal_queue(
+            deps,
+            sub_info,
+            perp_id,
+            info.sender.to_string(),
+            restored_lp_tokens,
+        )?;
+    }
 
-    Ok(Response::new()
-        .add_attribute("method", "deposit_into_vault")
-        // .add_event(event)
-        .add_message(withdraw))
+    Ok(
+        Response::new().add_attribute("method", "cancel_withdrawal_requests"), // .add_event(event)
+    )
+}
+
+/// Processes user withdrawal requests as long as the dYdX subaccount allows it.
+/// Burns LP tokens upon withdrawal.
+/// Can only be called by the Trader
+pub fn process_withdrawals(
+    mut deps: DepsMut<DydxQueryWrapper>,
+    env: Env,
+    info: MessageInfo,
+    perp_id: u32,
+    mut max_num_withdrawals: u32,
+) -> ContractResult<Response<DydxMsg>> {
+    let state = STATE.load(deps.storage)?;
+    // validate sender (must be configured trader)
+    if info.sender != &state.trader {
+        return Err(ContractError::SenderCannotProcessWithdrawals {
+            sender: info.sender,
+        });
+    }
+
+    let querier = DydxQuerier::new(&deps.querier);
+    let vp = query_validated_dydx_position(&querier, &env, perp_id)?;
+    let mut subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
+
+    let (
+        _queued_lp_tokens,
+        _queued_lp_tokens_decimal,
+        _outstanding_lp_tokens,
+        outstanding_lp_tokens_decimal,
+        lp_token_info,
+    ) = get_user_and_outstanding_lp_tokens(&deps, perp_id, &env.contract.address)?;
+
+    let mut withdrawal_queue = WITHDRAWAL_QUEUES
+        .may_load(deps.storage, perp_id)?
+        .ok_or(ContractError::MissingWithdrawalQueue { perp_id })?;
+
+    let mut withdraw_msgs = vec![];
+    while max_num_withdrawals > 0 && withdrawal_queue.len() > 0 {
+        let lp_amount = withdrawal_queue[0].lp_tokens;
+        let lp_amount_decimal =
+            Decimal::from_atomics(lp_amount, lp_token_info.decimals as u32).unwrap();
+        let recipient = &withdrawal_queue[0].recipient_addr;
+
+        // make quantums
+        let ownership_fraction = lp_amount_decimal / outstanding_lp_tokens_decimal;
+        let withdraw_value = ownership_fraction * subaccount_value;
+        assert!(withdraw_value <= subaccount_value);
+        assert!(ownership_fraction <= Decimal::one());
+        subaccount_value -= withdraw_value;
+
+        let withdraw_quantums = decimal_to_native_round_down(withdraw_value, USDC_DENOM).unwrap();
+        if withdraw_quantums >= u64::MAX.into() {
+            return Err(ContractError::InvalidWithdrawalAmount {
+                coin_type: USDC_COIN_TYPE.to_string(),
+                amount: withdraw_quantums.into(),
+            });
+        };
+
+        // make withdrawal message
+        let withdraw_message = DydxMsg::WithdrawFromSubaccountV1 {
+            subaccount_number: perp_id,
+            recipient: recipient.to_string(),
+            asset_id: USDC_ID,
+            quantums: withdraw_quantums.u128() as u64,
+        };
+        withdraw_msgs.push(withdraw_message);
+
+        // burn LP tokens
+        burn_lp_tokens(&mut deps, &info, perp_id, &env.contract.address, lp_amount)?;
+
+        // pop from vec
+        withdrawal_queue.remove(0);
+
+        max_num_withdrawals -= 1;
+    }
+    WITHDRAWAL_QUEUES.save(deps.storage, perp_id, &withdrawal_queue)?;
+
+    Ok(
+        Response::new()
+            .add_attribute("method", "process_withdrawals")
+            .add_messages(withdraw_msgs), // .add_event(event)
+    )
 }
 
 /// Places an order on dYdX.
@@ -317,11 +428,6 @@ pub fn place_order(
     if vault_state.status != VaultStatus::Open {
         return Err(ContractError::VaultIsNotOpen { perp_id });
     }
-
-    // // validate order
-    // if order.order_id.subaccount_id.owner != env.contract.address {
-    //     return Err(ContractError::InvalidOrderIdSubaccountOwner);
-    // }
 
     // let event = order.get_place_event();
     let place_order = DydxMsg::PlaceOrderV1 {
@@ -366,11 +472,6 @@ pub fn cancel_order(
             addr: info.sender.to_string(),
         });
     }
-
-    // // validate cancelling a smart-contract owned order
-    // if order_id.subaccount_id.owner != env.contract.address {
-    //     return Err(ContractError::InvalidOrderIdSubaccountOwner);
-    // }
 
     // let event = order_id.get_cancel_event();
     let cancel_order = DydxMsg::CancelOrderV1 {
@@ -559,10 +660,10 @@ fn mint_lp_tokens(
 }
 
 fn burn_lp_tokens(
-    deps: DepsMut<DydxQueryWrapper>,
-    info: MessageInfo,
+    deps: &mut DepsMut<DydxQueryWrapper>,
+    info: &MessageInfo,
     perp_id: u32,
-    recipient: String,
+    token_owner: &Addr,
     amount: Uint128,
 ) -> ContractResult<()> {
     let mut config = LP_TOKENS
@@ -584,12 +685,89 @@ fn burn_lp_tokens(
     config.total_supply -= amount;
     LP_TOKENS.save(deps.storage, perp_id, &config)?;
 
-    // remove amount from recipient balance
-    let rcpt_addr = deps.api.addr_validate(&recipient)?;
+    // remove amount from owner balance
+    LP_BALANCES.update(
+        deps.storage,
+        (perp_id, &token_owner),
+        |balance: Option<Uint128>| -> StdResult<_> { Ok(balance.unwrap_or_default() - amount) },
+    )?;
+
+    Ok(())
+}
+
+fn transfer_lp_tokens_to_withdrawal_queue(
+    deps: DepsMut<DydxQueryWrapper>,
+    info: MessageInfo,
+    perp_id: u32,
+    withdrawer: String,
+    amount: Uint128,
+) -> ContractResult<()> {
+    let config = LP_TOKENS
+        .may_load(deps.storage, perp_id)?
+        .ok_or(ContractError::Unauthorized {})?;
+
+    if config
+        .mint
+        .as_ref()
+        .ok_or(ContractError::Unauthorized {})?
+        .minter
+        != info.sender
+    {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    // remove amount from withdrawer's balance
+    let rcpt_addr = deps.api.addr_validate(&withdrawer)?;
     LP_BALANCES.update(
         deps.storage,
         (perp_id, &rcpt_addr),
         |balance: Option<Uint128>| -> StdResult<_> { Ok(balance.unwrap_or_default() - amount) },
+    )?;
+
+    // add it to the contract's LP balance
+    LP_BALANCES.update(
+        deps.storage,
+        (perp_id, &info.sender), // guaranteed to be smart contract
+        |balance: Option<Uint128>| -> StdResult<_> { Ok(balance.unwrap_or_default() + amount) },
+    )?;
+
+    Ok(())
+}
+
+fn transfer_lp_tokens_from_withdrawal_queue(
+    deps: DepsMut<DydxQueryWrapper>,
+    info: MessageInfo,
+    perp_id: u32,
+    withdrawer: String,
+    amount: Uint128,
+) -> ContractResult<()> {
+    let config = LP_TOKENS
+        .may_load(deps.storage, perp_id)?
+        .ok_or(ContractError::Unauthorized {})?;
+
+    if config
+        .mint
+        .as_ref()
+        .ok_or(ContractError::Unauthorized {})?
+        .minter
+        != info.sender
+    {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    // remove amount from contracts's balance
+    LP_BALANCES.update(
+        deps.storage,
+        (perp_id, &info.sender), // guaranteed to be smart contract
+        |balance: Option<Uint128>| -> StdResult<_> { Ok(balance.unwrap_or_default() - amount) },
+    )?;
+
+    // add it to the withdrawer's LP balance
+    let withdrawer_addr = deps.api.addr_validate(&withdrawer)?;
+    LP_BALANCES.update(
+        deps.storage,
+        (perp_id, &withdrawer_addr),
+        |balance: Option<Uint128>| -> StdResult<_> { Ok(balance.unwrap_or_default() + amount) },
     )?;
 
     Ok(())
@@ -601,7 +779,7 @@ fn get_user_and_outstanding_lp_tokens(
     deps: &DepsMut<DydxQueryWrapper>,
     perp_id: u32,
     user_addr: &Addr,
-) -> ContractResult<(Uint128, Decimal, Uint128, Decimal)> {
+) -> ContractResult<(Uint128, Decimal, Uint128, Decimal, TokenInfoResponse)> {
     let lp_token_info = lp_token_info(deps.as_ref(), perp_id)?;
     let outstanding_lp_tokens =
         Decimal::from_atomics(lp_token_info.total_supply, lp_token_info.decimals as u32).unwrap();
@@ -621,10 +799,29 @@ fn get_user_and_outstanding_lp_tokens(
         user_lp_tokens,
         lp_token_info.total_supply,
         outstanding_lp_tokens,
+        lp_token_info,
     ))
 }
 
-/// convert a decimal to native Uint128. Implicitly rounds down
-fn decimal_to_native(decimal: Decimal, denom: u32) -> Uint128 {
-    decimal.numerator() / Uint128::new(10 as u128).pow(Decimal::DECIMAL_PLACES - denom)
+/// convert a decimal to native Uint128. Rounds down
+fn decimal_to_native_round_down(
+    decimal: Decimal,
+    denom: u32,
+) -> Result<Uint128, CheckedMultiplyFractionError> {
+    let frac = (
+        Uint128::new(10 as u128).pow(Decimal::DECIMAL_PLACES - denom),
+        Uint128::one(),
+    );
+    decimal.numerator().checked_div_floor(frac)
+}
+/// convert a decimal to native Uint128. Rounds up
+fn decimal_to_native_round_up(
+    decimal: Decimal,
+    denom: u32,
+) -> Result<Uint128, CheckedMultiplyFractionError> {
+    let frac = (
+        Uint128::new(10 as u128).pow(Decimal::DECIMAL_PLACES - denom),
+        Uint128::one(),
+    );
+    decimal.numerator().checked_div_ceil(frac)
 }

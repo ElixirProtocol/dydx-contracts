@@ -49,10 +49,19 @@ pub fn execute(
         ExecuteMsg::DepositIntoVault { perp_id } => {
             crate::execute::deposit_into_vault(deps, env, info, perp_id).map_err(Into::into)
         }
-        ExecuteMsg::WithdrawFromVault { amount, perp_id } => {
-            crate::execute::withdraw_from_vault(deps, env, info, amount, perp_id)
-                .map_err(Into::into)
+        ExecuteMsg::RequestWithdrawal {
+            usdc_amount,
+            perp_id,
+        } => crate::execute::request_withdrawal(deps, env, info, usdc_amount, perp_id)
+            .map_err(Into::into),
+        ExecuteMsg::CancelWithdrawalRequests { perp_id } => {
+            crate::execute::cancel_withdrawal_requests(deps, env, info, perp_id).map_err(Into::into)
         }
+        ExecuteMsg::ProcessWithdrawals {
+            perp_id,
+            max_num_withdrawals,
+        } => crate::execute::process_withdrawals(deps, env, info, perp_id, max_num_withdrawals)
+            .map_err(Into::into),
         ExecuteMsg::PlaceOrder {
             subaccount_number,
             client_id,

@@ -23,6 +23,8 @@ pub enum ContractError {
     SenderCannotFreezeVault { sender: Addr },
     #[error("{sender} does not have permission to thaw the vault")]
     SenderCannotThawVault { sender: Addr },
+    #[error("{sender} does not have permission to process withdrawals")]
+    SenderCannotProcessWithdrawals { sender: Addr },
     #[error("Tried to set {new_trader} as trader of vault: {perp_id}, but they do not have permission to trade")]
     NewVaultTraderMustBeApproved { new_trader: Addr, perp_id: u32 },
     #[error("{sender} does not have permission to place trades. Only {expected} can place trades  perp_id: {perp_id}")]
@@ -86,4 +88,7 @@ pub enum ContractError {
     CannotExceedCap {},
     #[error("could not find LP token for vault with perp_id: {perp_id}")]
     MissingLpToken { perp_id: u32 },
+
+    #[error("could not find withdrawal_queue for vault with perp_id: {perp_id}")]
+    MissingWithdrawalQueue { perp_id: u32 },
 }
