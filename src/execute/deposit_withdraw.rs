@@ -9,7 +9,7 @@ use crate::execute::helpers::{
 };
 use crate::execute::{USDC_COIN_TYPE, USDC_DENOM, USDC_ID};
 use crate::query::{lp_token_info, query_validated_dydx_position};
-use crate::state::{Withdrawal, WITHDRAWAL_QUEUES};
+use crate::state::{Withdrawal, VAULT_STATES_BY_PERP_ID, WITHDRAWAL_QUEUES};
 use crate::{error::ContractError, state::STATE};
 
 use super::helpers::{
@@ -46,6 +46,9 @@ pub fn deposit_into_vault(
     }
 
     // assert vault exists
+    if !VAULT_STATES_BY_PERP_ID.has(deps.storage, perp_id) {
+        return Err(ContractError::VaultNotInitialized { perp_id });
+    }
 
     let vp = query_validated_dydx_position(&querier, &env, perp_id)?;
     let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
@@ -58,8 +61,7 @@ pub fn deposit_into_vault(
     let outstanding_lp_tokens =
         Decimal::from_atomics(lp_token_info.total_supply, lp_token_info.decimals as u32).unwrap();
     let new_tokens = if share_value_fraction == Decimal::one() {
-        // TODO: fix large initial deposit bug
-        Uint128::new(10 as u128).pow(USDC_DENOM)
+        amount
     } else {
         let token_amt_decimal = (share_value_fraction * outstanding_lp_tokens)
             / (Decimal::one() - share_value_fraction);

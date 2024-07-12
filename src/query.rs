@@ -108,8 +108,6 @@ pub fn query_validated_dydx_position(
     env: &Env,
     perp_id: u32,
 ) -> ContractResult<ValidatedDydxPosition> {
-    // TODO: ensure that this function works when money is in unfilled orders
-
     // query subaccount + price state from dYdX
     let clob_resp = querier.query_perpetual_clob_details(perp_id)?;
     let perp_params = clob_resp.perpetual_clob_details.perpetual.params;

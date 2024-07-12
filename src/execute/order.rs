@@ -5,7 +5,7 @@ use crate::dydx::msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce}
 use crate::dydx::querier::DydxQuerier;
 use crate::dydx::query::DydxQueryWrapper;
 use crate::error::ContractResult;
-use crate::state::{VaultStatus, VAULT_STATES_BY_PERP_ID};
+use crate::state::VAULT_STATES_BY_PERP_ID;
 use crate::{error::ContractError, state::STATE};
 
 #[cw_serde]
@@ -62,10 +62,6 @@ pub fn market_make(
     // validate vault
     if !VAULT_STATES_BY_PERP_ID.has(deps.storage, perp_id) {
         return Err(ContractError::VaultNotInitialized { perp_id });
-    }
-    let vault_state = VAULT_STATES_BY_PERP_ID.load(deps.storage, perp_id)?;
-    if vault_state.status != VaultStatus::Open {
-        return Err(ContractError::VaultIsNotOpen { perp_id });
     }
 
     let mut response = Response::new().add_attribute("method", "market_make");
