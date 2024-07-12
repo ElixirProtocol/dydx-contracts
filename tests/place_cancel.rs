@@ -45,7 +45,7 @@ mod tests {
             user1.clone(),
         );
 
-        let place_response = app
+        let _place_response = app
             .execute_contract(
                 user1.clone(),
                 app_addr.clone(),

@@ -4,7 +4,6 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::serializable_int::SerializableInt;
 
-// TODO(OTE-408): standardize proto compilation
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct MarketPrice {
