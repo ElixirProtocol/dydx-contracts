@@ -1,27 +1,21 @@
-use cosmwasm_std::{
-    Addr, CheckedMultiplyFractionError, Decimal, DepsMut, Env, Event, Fraction, MessageInfo,
-    Response, StdResult, Uint128,
-};
-use cw20_base::state::{MinterData, TokenInfo};
+use cosmwasm_std::{Decimal, DepsMut, Env, Event, MessageInfo, Response, Uint128};
 
-use crate::dydx::msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce};
-use crate::dydx::proto_structs::{OrderBatch, SubaccountId};
+use crate::dydx::msg::DydxMsg;
 use crate::dydx::querier::DydxQuerier;
 use crate::dydx::query::DydxQueryWrapper;
 use crate::error::ContractResult;
-use crate::execute::helpers::{burn_lp_tokens, decimal_to_native_round_down, get_contract_subaccount_id, mint_lp_tokens};
-use crate::execute::{USDC_COIN_TYPE, USDC_DENOM, USDC_ID};
-use crate::msg::TokenInfoResponse;
-use crate::query::{lp_token_info, query_validated_dydx_position};
-use crate::state::{
-    VaultState, VaultStatus, Withdrawal, LP_BALANCES, LP_TOKENS, VAULT_STATES_BY_PERP_ID,
-    WITHDRAWAL_QUEUES,
+use crate::execute::helpers::{
+    burn_lp_tokens, decimal_to_native_round_down, get_contract_subaccount_id, mint_lp_tokens,
 };
+use crate::execute::{USDC_COIN_TYPE, USDC_DENOM, USDC_ID};
+use crate::query::{lp_token_info, query_validated_dydx_position};
+use crate::state::{Withdrawal, WITHDRAWAL_QUEUES};
 use crate::{error::ContractError, state::STATE};
 
-use super::helpers::{decimal_to_native_round_up, get_user_and_outstanding_lp_tokens, transfer_lp_tokens_from_withdrawal_queue, transfer_lp_tokens_to_withdrawal_queue};
-
-
+use super::helpers::{
+    decimal_to_native_round_up, get_user_and_outstanding_lp_tokens,
+    transfer_lp_tokens_from_withdrawal_queue, transfer_lp_tokens_to_withdrawal_queue,
+};
 
 /// Allows a user to deposit into the market-making vault.
 ///

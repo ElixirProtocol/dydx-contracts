@@ -47,80 +47,52 @@ pub fn execute(
             crate::execute::admin::thaw_vault(deps, info, perp_id).map_err(Into::into)
         }
         ExecuteMsg::DepositIntoVault { perp_id } => {
-            crate::execute::deposit_withdraw::deposit_into_vault(deps, env, info, perp_id).map_err(Into::into)
+            crate::execute::deposit_withdraw::deposit_into_vault(deps, env, info, perp_id)
+                .map_err(Into::into)
         }
         ExecuteMsg::RequestWithdrawal {
             usdc_amount,
             perp_id,
-        } => crate::execute::deposit_withdraw::request_withdrawal(deps, env, info, usdc_amount, perp_id)
-            .map_err(Into::into),
+        } => crate::execute::deposit_withdraw::request_withdrawal(
+            deps,
+            env,
+            info,
+            usdc_amount,
+            perp_id,
+        )
+        .map_err(Into::into),
         ExecuteMsg::CancelWithdrawalRequests { perp_id } => {
-            crate::execute::deposit_withdraw::cancel_withdrawal_requests(deps, env, info, perp_id).map_err(Into::into)
+            crate::execute::deposit_withdraw::cancel_withdrawal_requests(deps, env, info, perp_id)
+                .map_err(Into::into)
         }
         ExecuteMsg::ProcessWithdrawals {
             perp_id,
             max_num_withdrawals,
-        } => crate::execute::deposit_withdraw::process_withdrawals(deps, env, info, perp_id, max_num_withdrawals)
-            .map_err(Into::into),
-        ExecuteMsg::PlaceOrder {
-            subaccount_number,
-            client_id,
-            order_flags,
-            clob_pair_id,
-            side,
-            quantums,
-            subticks,
-            good_til_block_time,
-            time_in_force,
-            reduce_only,
-            client_metadata,
-            conditional_order_trigger_subticks,
-        } => crate::execute::order::place_order(
+        } => crate::execute::deposit_withdraw::process_withdrawals(
             deps,
             env,
             info,
-            subaccount_number,
-            client_id,
-            order_flags,
-            clob_pair_id,
-            side,
-            quantums,
-            subticks,
-            good_til_block_time,
-            time_in_force,
-            reduce_only,
-            client_metadata,
-            conditional_order_trigger_subticks,
+            perp_id,
+            max_num_withdrawals,
         )
         .map_err(Into::into),
-        ExecuteMsg::CancelOrder {
+        ExecuteMsg::MarketMake {
             subaccount_number,
-            client_id,
-            order_flags,
             clob_pair_id,
-            good_til_block_time,
-        } => crate::execute::order::cancel_order(
+            new_orders,
+            cancel_client_ids,
+            cancel_good_til_block,
+        } => crate::execute::order::market_make(
             deps,
             env,
             info,
             subaccount_number,
-            client_id,
-            order_flags,
             clob_pair_id,
-            good_til_block_time,
-        ),
-        ExecuteMsg::BatchCancel {
-            subaccount_number,
-            order_batches,
-            good_til_block,
-        } => crate::execute::order::batch_cancel(
-            deps,
-            env,
-            info,
-            subaccount_number,
-            order_batches,
-            good_til_block,
-        ),
+            new_orders,
+            cancel_client_ids,
+            cancel_good_til_block,
+        )
+        .map_err(Into::into),
     }
 }
 

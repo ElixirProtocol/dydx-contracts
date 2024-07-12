@@ -66,6 +66,9 @@ pub enum ContractError {
     #[error("Market with id: {perp_id} is not configured")]
     InvalidMarket { perp_id: u32 },
 
+    #[error("The supplied clob id: {supplied_id} does not match the on-chain id of: {queried_id} for perp market: {perp_id}")]
+    PerpMarketClobIdMismatch { supplied_id: u32, queried_id: u32, perp_id: u32 },
+
     #[error("Tried to deposit an invalid coin: {coin_type}. Only USDC is accepted")]
     InvalidCoin { coin_type: String },
 

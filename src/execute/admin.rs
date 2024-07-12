@@ -1,26 +1,16 @@
-use cosmwasm_std::{
-    Addr, CheckedMultiplyFractionError, Decimal, DepsMut, Env, Event, Fraction, MessageInfo,
-    Response, StdResult, Uint128,
-};
+use cosmwasm_std::{DepsMut, Env, Event, MessageInfo, Response, Uint128};
 use cw20_base::state::{MinterData, TokenInfo};
 
-use crate::dydx::msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce};
-use crate::dydx::proto_structs::{OrderBatch, SubaccountId};
-use crate::dydx::querier::DydxQuerier;
+use crate::dydx::msg::DydxMsg;
 use crate::dydx::query::DydxQueryWrapper;
 use crate::error::ContractResult;
-use crate::msg::TokenInfoResponse;
-use crate::query::{lp_token_info, query_validated_dydx_position};
 use crate::state::{
-    VaultState, VaultStatus, Withdrawal, LP_BALANCES, LP_TOKENS, VAULT_STATES_BY_PERP_ID,
-    WITHDRAWAL_QUEUES,
+    VaultState, VaultStatus, LP_TOKENS, VAULT_STATES_BY_PERP_ID, WITHDRAWAL_QUEUES,
 };
 use crate::{error::ContractError, state::STATE};
 
 use super::helpers::{get_contract_subaccount_id, validate_addr_string, verify_owner_or_trader};
 use super::USDC_DENOM;
-
-
 
 pub fn set_trader(
     deps: DepsMut<DydxQueryWrapper>,

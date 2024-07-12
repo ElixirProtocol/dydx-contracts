@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use strum_macros::{Display, EnumString};
 
-use super::proto_structs::{OrderBatch, SubaccountId};
+use super::proto_structs::SubaccountId;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Transfer {
@@ -143,7 +143,7 @@ pub enum DydxMsg {
         order_flags: u32,
         clob_pair_id: u32,
         good_til_block_time: u32,
-    }
+    },
 }
 
 impl From<DydxMsg> for CosmosMsg<DydxMsg> {

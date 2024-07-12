@@ -1,13 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, CustomQuery, Decimal, Uint128};
 
-use crate::{
-    dydx::{
-        msg::{OrderSide, OrderTimeInForce},
-        proto_structs::{OrderBatch, Subaccount},
-    },
-    state::VaultStatus,
-};
+use crate::{dydx::proto_structs::Subaccount, execute::order::NewOrder, state::VaultStatus};
 
 #[cw_serde]
 #[serde(rename_all = "snake_case")]
@@ -60,31 +54,12 @@ pub enum ExecuteMsg {
         perp_id: u32,
         max_num_withdrawals: u32,
     },
-    PlaceOrder {
+    MarketMake {
         subaccount_number: u32,
-        client_id: u32,
-        order_flags: u32,
         clob_pair_id: u32,
-        side: OrderSide,
-        quantums: u64,
-        subticks: u64,
-        good_til_block_time: u32,
-        time_in_force: OrderTimeInForce,
-        reduce_only: bool,
-        client_metadata: u32,
-        conditional_order_trigger_subticks: u64,
-    },
-    CancelOrder {
-        subaccount_number: u32,
-        client_id: u32,
-        order_flags: u32,
-        clob_pair_id: u32,
-        good_til_block_time: u32,
-    },
-    BatchCancel {
-        subaccount_number: u32,
-        order_batches: Vec<OrderBatch>,
-        good_til_block: u32,
+        new_orders: Vec<NewOrder>,
+        cancel_client_ids: Vec<u32>,
+        cancel_good_til_block: u32,
     },
 }
 
@@ -133,7 +108,7 @@ mod tests {
     use crate::{
         dydx::{
             msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce},
-            proto_structs::{OrderBatch, SubaccountId},
+            proto_structs::SubaccountId,
         },
         msg::QueryMsg,
     };
@@ -180,21 +155,6 @@ mod tests {
             },
             asset_id: 0,
             quantums: 0,
-        };
-
-        let serialized_msg = serde_json::to_string(&msg).unwrap();
-        println!("{}", serialized_msg);
-    }
-
-    #[test]
-    fn example_serialize_dydx_batch_cancel() {
-        let msg = DydxMsg::BatchCancelV1 {
-            subaccount_number: 0,
-            short_term_cancels: vec![OrderBatch {
-                clob_pair_id: 0,
-                client_ids: vec![101, 102],
-            }],
-            good_til_block: 123,
         };
 
         let serialized_msg = serde_json::to_string(&msg).unwrap();

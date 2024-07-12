@@ -1,22 +1,14 @@
-use cosmwasm_std::{
-    Addr, CheckedMultiplyFractionError, Decimal, DepsMut, Env, Event, Fraction, MessageInfo,
-    Response, StdResult, Uint128,
-};
-use cw20_base::state::{MinterData, TokenInfo};
-
-use crate::dydx::msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce};
-use crate::dydx::proto_structs::{OrderBatch, SubaccountId};
-use crate::dydx::querier::DydxQuerier;
+use crate::dydx::proto_structs::SubaccountId;
 use crate::dydx::query::DydxQueryWrapper;
+use crate::error::ContractError;
 use crate::error::ContractResult;
 use crate::msg::TokenInfoResponse;
-use crate::query::{lp_token_info, query_validated_dydx_position};
-use crate::state::{
-    VaultState, VaultStatus, Withdrawal, LP_BALANCES, LP_TOKENS, VAULT_STATES_BY_PERP_ID,
-    WITHDRAWAL_QUEUES,
+use crate::query::lp_token_info;
+use crate::state::{LP_BALANCES, LP_TOKENS};
+use cosmwasm_std::{
+    Addr, CheckedMultiplyFractionError, Decimal, DepsMut, Env, Fraction, MessageInfo, StdResult,
+    Uint128,
 };
-use crate::{error::ContractError, state::STATE};
-
 
 pub fn verify_owner_or_trader(sender: &Addr, owner: &Addr, trader: &Addr) -> ContractResult<()> {
     if sender != owner && sender != trader {

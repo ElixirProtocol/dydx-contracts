@@ -4,8 +4,9 @@ mod utils;
 mod tests {
     use cw_multi_test::Executor;
     use elixir_dydx_integration::{
-        dydx::msg::{OrderConditionType, OrderSide, OrderTimeInForce},
-        msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
+        dydx::msg::{OrderSide, OrderTimeInForce},
+        execute::order::NewOrder,
+        msg::ExecuteMsg,
     };
 
     use crate::utils::{
@@ -13,10 +14,23 @@ mod tests {
     };
 
     const CLIENT_ID: u32 = 101;
-    const ORDER_FLAGS: u32 = 64;
     const CLOB_PAIR_ID: u32 = 0;
     const SUBACCOUNT_NUMBER: u32 = 0;
     const BLOCK_TIME: u32 = 1720791702;
+
+    fn new_order() -> NewOrder {
+        NewOrder {
+            client_id: CLIENT_ID,
+            side: OrderSide::Buy,
+            quantums: 1000000,
+            subticks: 100000,
+            good_til_block_time: BLOCK_TIME,
+            time_in_force: OrderTimeInForce::Unspecified,
+            reduce_only: false,
+            client_metadata: 0,
+            conditional_order_trigger_subticks: 0,
+        }
+    }
 
     #[test]
     fn trader_can_place_order() {
@@ -35,19 +49,12 @@ mod tests {
             .execute_contract(
                 user1.clone(),
                 app_addr.clone(),
-                &ExecuteMsg::PlaceOrder {
+                &ExecuteMsg::MarketMake {
                     subaccount_number: SUBACCOUNT_NUMBER,
-                    client_id: CLIENT_ID,
-                    order_flags: ORDER_FLAGS,
                     clob_pair_id: CLOB_PAIR_ID,
-                    side: OrderSide::Buy,
-                    quantums: 1000000,
-                    subticks: 100000,
-                    good_til_block_time: BLOCK_TIME,
-                    time_in_force: OrderTimeInForce::Unspecified,
-                    reduce_only: false,
-                    client_metadata: 0,
-                    conditional_order_trigger_subticks: 0,
+                    new_orders: vec![new_order()],
+                    cancel_client_ids: vec![],
+                    cancel_good_til_block: 0,
                 },
                 &[],
             )
@@ -99,23 +106,16 @@ mod tests {
             user1.clone(),
         );
 
-        let place_response = app
+        let _place_response = app
             .execute_contract(
                 user2.clone(),
                 app_addr.clone(),
-                &ExecuteMsg::PlaceOrder {
+                &ExecuteMsg::MarketMake {
                     subaccount_number: SUBACCOUNT_NUMBER,
-                    client_id: CLIENT_ID,
-                    order_flags: ORDER_FLAGS,
                     clob_pair_id: CLOB_PAIR_ID,
-                    side: OrderSide::Buy,
-                    quantums: 1000000,
-                    subticks: 100000,
-                    good_til_block_time: BLOCK_TIME,
-                    time_in_force: OrderTimeInForce::Unspecified,
-                    reduce_only: false,
-                    client_metadata: 0,
-                    conditional_order_trigger_subticks: 0,
+                    new_orders: vec![new_order()],
+                    cancel_client_ids: vec![],
+                    cancel_good_til_block: 0,
                 },
                 &[],
             )
@@ -139,19 +139,12 @@ mod tests {
             .execute_contract(
                 user1.clone(),
                 app_addr.clone(),
-                &ExecuteMsg::PlaceOrder {
+                &ExecuteMsg::MarketMake {
                     subaccount_number: SUBACCOUNT_NUMBER,
-                    client_id: CLIENT_ID,
-                    order_flags: ORDER_FLAGS,
                     clob_pair_id: CLOB_PAIR_ID,
-                    side: OrderSide::Buy,
-                    quantums: 1000000,
-                    subticks: 100000,
-                    good_til_block_time: BLOCK_TIME,
-                    time_in_force: OrderTimeInForce::Unspecified,
-                    reduce_only: false,
-                    client_metadata: 0,
-                    conditional_order_trigger_subticks: 0,
+                    new_orders: vec![new_order()],
+                    cancel_client_ids: vec![],
+                    cancel_good_til_block: 0,
                 },
                 &[],
             )
@@ -161,14 +154,14 @@ mod tests {
 
         let _cancel_response = app
             .execute_contract(
-                user1,
-                app_addr,
-                &ExecuteMsg::CancelOrder {
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::MarketMake {
                     subaccount_number: SUBACCOUNT_NUMBER,
-                    client_id: CLIENT_ID,
-                    order_flags: ORDER_FLAGS,
                     clob_pair_id: CLOB_PAIR_ID,
-                    good_til_block_time: BLOCK_TIME,
+                    new_orders: vec![],
+                    cancel_client_ids: vec![CLIENT_ID],
+                    cancel_good_til_block: BLOCK_TIME,
                 },
                 &[],
             )
@@ -198,19 +191,12 @@ mod tests {
             .execute_contract(
                 user1.clone(),
                 app_addr.clone(),
-                &ExecuteMsg::PlaceOrder {
+                &ExecuteMsg::MarketMake {
                     subaccount_number: SUBACCOUNT_NUMBER,
-                    client_id: CLIENT_ID,
-                    order_flags: ORDER_FLAGS,
                     clob_pair_id: CLOB_PAIR_ID,
-                    side: OrderSide::Buy,
-                    quantums: 1000000,
-                    subticks: 100000,
-                    good_til_block_time: BLOCK_TIME,
-                    time_in_force: OrderTimeInForce::Unspecified,
-                    reduce_only: false,
-                    client_metadata: 0,
-                    conditional_order_trigger_subticks: 0,
+                    new_orders: vec![new_order()],
+                    cancel_client_ids: vec![],
+                    cancel_good_til_block: 0,
                 },
                 &[],
             )
@@ -220,14 +206,14 @@ mod tests {
 
         let _cancel_response = app
             .execute_contract(
-                user2,
-                app_addr,
-                &ExecuteMsg::CancelOrder {
+                user2.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::MarketMake {
                     subaccount_number: SUBACCOUNT_NUMBER,
-                    client_id: CLIENT_ID,
-                    order_flags: ORDER_FLAGS,
                     clob_pair_id: CLOB_PAIR_ID,
-                    good_til_block_time: BLOCK_TIME,
+                    new_orders: vec![],
+                    cancel_client_ids: vec![CLIENT_ID],
+                    cancel_good_til_block: BLOCK_TIME,
                 },
                 &[],
             )
