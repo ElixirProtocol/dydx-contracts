@@ -21,6 +21,8 @@ pub enum QueryMsg {
     Vaults,
     #[returns(VaultOwnershipResponse)]
     VaultOwnership { perp_id: u32, depositor: String },
+    #[returns(WithdrawalsResponse)]
+    Withdrawals { perp_id: u32 },
     #[returns(DydxSubaccountResponse)]
     DydxSubaccount { owner: String, number: u32 },
     #[returns(LiquidityTiersResponse)]
@@ -69,6 +71,18 @@ pub enum ExecuteMsg {
 #[cw_serde]
 pub struct TraderResponse {
     pub trader: Addr,
+}
+
+#[cw_serde]
+pub struct WithdrawalResponse {
+    pub recipient_addr: Addr,
+    pub lp_tokens: Uint128,
+    pub usdc_equivalent: Decimal,
+}
+
+#[cw_serde]
+pub struct WithdrawalsResponse {
+    pub withdrawal_queue: Vec<WithdrawalResponse>,
 }
 
 #[cw_serde]

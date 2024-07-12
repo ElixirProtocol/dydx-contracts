@@ -50,7 +50,7 @@ pub fn deposit_into_vault(
         return Err(ContractError::VaultNotInitialized { perp_id });
     }
 
-    let vp = query_validated_dydx_position(&querier, &env, perp_id)?;
+    let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
     let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
     let deposit_value = Decimal::from_atomics(amount, USDC_DENOM).unwrap();
     let lp_token_info = lp_token_info(deps.as_ref(), perp_id)?;
@@ -118,8 +118,6 @@ pub fn request_withdrawal(
     usdc_amount: u64,
     perp_id: u32,
 ) -> ContractResult<Response<DydxMsg>> {
-    let querier = DydxQuerier::new(&deps.querier);
-
     let (
         user_lp_tokens,
         user_lp_tokens_decimal,
@@ -133,7 +131,7 @@ pub fn request_withdrawal(
         user_lp_tokens
     } else {
         // withdraw some
-        let vp = query_validated_dydx_position(&querier, &env, perp_id)?;
+        let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
         let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
         let ownership_fraction = user_lp_tokens_decimal / outstanding_lp_tokens_decimal;
 
@@ -250,8 +248,7 @@ pub fn process_withdrawals(
         });
     }
 
-    let querier = DydxQuerier::new(&deps.querier);
-    let vp = query_validated_dydx_position(&querier, &env, perp_id)?;
+    let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
     let mut subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
 
     let (

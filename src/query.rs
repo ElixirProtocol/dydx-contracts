@@ -7,9 +7,9 @@ use crate::{
     execute::{USDC_DENOM, USDC_ID},
     msg::{
         DydxSubaccountResponse, LpTokenBalanceResponse, TokenInfoResponse, TraderResponse,
-        VaultOwnershipResponse, VaultsResponse,
+        VaultOwnershipResponse, VaultsResponse, WithdrawalResponse, WithdrawalsResponse,
     },
-    state::{LP_BALANCES, LP_TOKENS, STATE, VAULTS_BY_PERP_ID},
+    state::{LP_BALANCES, LP_TOKENS, STATE, VAULTS_BY_PERP_ID, WITHDRAWAL_QUEUES},
 };
 use cosmwasm_std::{Decimal, Deps, Env, Order, StdResult};
 use num_traits::ToPrimitive;
@@ -34,6 +34,37 @@ pub fn trader(deps: Deps<DydxQueryWrapper>) -> StdResult<TraderResponse> {
     })
 }
 
+pub fn withdrawals(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<WithdrawalsResponse> {
+    let q = WITHDRAWAL_QUEUES
+        .may_load(deps.storage, perp_id)?
+        .ok_or(ContractError::MissingWithdrawalQueue { perp_id })
+        .unwrap();
+    let vp = query_validated_dydx_position(deps, perp_id).unwrap();
+    let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
+
+    let lp_token_info = lp_token_info(deps, perp_id)?;
+    let outstanding_lp_tokens_decimal =
+        Decimal::from_atomics(lp_token_info.total_supply, lp_token_info.decimals as u32).unwrap();
+
+    let withdrawals: Vec<WithdrawalResponse> = q
+        .into_iter()
+        .map(|w| {
+            let lp_tokens_decimal =
+                Decimal::from_atomics(w.lp_tokens, lp_token_info.decimals as u32).unwrap();
+            let lp_fraction = lp_tokens_decimal / outstanding_lp_tokens_decimal;
+
+            WithdrawalResponse {
+                recipient_addr: w.recipient_addr,
+                lp_tokens: w.lp_tokens,
+                usdc_equivalent: subaccount_value * lp_fraction,
+            }
+        })
+        .collect();
+    Ok(WithdrawalsResponse {
+        withdrawal_queue: withdrawals,
+    })
+}
+
 pub fn vaults(deps: Deps<DydxQueryWrapper>) -> StdResult<VaultsResponse> {
     let vault = VAULTS_BY_PERP_ID.keys(deps.storage, None, None, Order::Ascending);
     let vaults: Vec<u32> = vault.map(|i| i.unwrap()).collect();
@@ -42,18 +73,17 @@ pub fn vaults(deps: Deps<DydxQueryWrapper>) -> StdResult<VaultsResponse> {
 
 pub fn vault_ownership(
     deps: Deps<DydxQueryWrapper>,
-    env: Env,
     perp_id: u32,
     depositor: String,
 ) -> StdResult<VaultOwnershipResponse> {
-    let querier = DydxQuerier::new(&deps.querier);
-    let vp = query_validated_dydx_position(&querier, &env, perp_id).unwrap();
+    let state = STATE.load(deps.storage)?;
+    let vp = query_validated_dydx_position(deps, perp_id).unwrap();
 
     let raw_depositor_balance = balance(deps, perp_id, depositor)?;
     let lp_token_info = lp_token_info(deps, perp_id)?;
 
     Ok(VaultOwnershipResponse {
-        subaccount_owner: env.contract.address.to_string(),
+        subaccount_owner: state.contract.to_string(),
         subaccount_number: perp_id,
         asset_usdc_value: vp.asset_usdc_value,
         perp_usdc_value: vp.perp_usdc_value,
@@ -103,18 +133,20 @@ pub struct ValidatedDydxPosition {
     pub perp_usdc_value: Decimal,
 }
 
-/// Queries dYdX for a subaccount owned by the smart contract and market price of the perp.
+/// Queries dYdX for a subaccount and the market price of the perp.
 /// Throws an error if the subaccount has any unexpected assets.
 pub fn query_validated_dydx_position(
-    querier: &DydxQuerier,
-    env: &Env,
+    deps: Deps<DydxQueryWrapper>,
     perp_id: u32,
 ) -> ContractResult<ValidatedDydxPosition> {
+    let state = STATE.load(deps.storage)?;
+    let querier = DydxQuerier::new(&deps.querier);
+
     // query subaccount + price state from dYdX
     let clob_resp = querier.query_perpetual_clob_details(perp_id)?;
     let perp_params = clob_resp.perpetual_clob_details.perpetual.params;
     let market_price_resp = querier.query_market_price(perp_params.market_id)?;
-    let subaccount_resp = querier.query_subaccount(env.contract.address.to_string(), perp_id)?;
+    let subaccount_resp = querier.query_subaccount(state.contract.to_string(), perp_id)?;
     let subaccount = subaccount_resp.subaccount;
 
     if market_price_resp.market_price.exponent > 0 {
@@ -165,4 +197,15 @@ pub fn query_validated_dydx_position(
     };
 
     Ok(validated_position)
+}
+
+/// Queries dYdX for
+/// Throws an error if the subaccount has any unexpected assets.
+pub fn query_validated_dydx_free_collateral(
+    querier: &DydxQuerier,
+    env: &Env,
+    perp_id: u32,
+) -> ContractResult<u64> {
+
+    Ok(0)
 }

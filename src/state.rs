@@ -5,8 +5,9 @@ use cw_storage_plus::{Item, Map};
 
 #[cw_serde]
 pub struct State {
-    pub owner: Addr,
+    pub admin: Addr,
     pub trader: Addr,
+    pub contract: Addr,
 }
 
 #[cw_serde]

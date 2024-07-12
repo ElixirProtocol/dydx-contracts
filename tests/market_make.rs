@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "cosmwasm1vqjarrly327529599rcc4qhzvhwe34pp5uyy4gylvxe5zupeqx3sg08lap cannot place/cancel trades"
+        expected = "cosmwasm1vqjarrly327529599rcc4qhzvhwe34pp5uyy4gylvxe5zupeqx3sg08lap is not the trader"
     )]
     fn non_traders_cannot_place_order() {
         let (mut app, code_id, users) = test_setup();
@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "cosmwasm1vqjarrly327529599rcc4qhzvhwe34pp5uyy4gylvxe5zupeqx3sg08lap cannot place/cancel trades"
+        expected = "cosmwasm1vqjarrly327529599rcc4qhzvhwe34pp5uyy4gylvxe5zupeqx3sg08lap is not the trader"
     )]
     fn non_traders_cannot_cancel_orders() {
         let (mut app, code_id, users) = test_setup();

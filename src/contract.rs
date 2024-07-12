@@ -1,5 +1,8 @@
 use crate::{
-    dydx::{msg::DydxMsg, query::DydxQueryWrapper}, error::{ContractError, ContractResult}, msg::{ExecuteMsg, InstantiateMsg, QueryMsg}, state::{State, STATE}
+    dydx::{msg::DydxMsg, query::DydxQueryWrapper},
+    error::{ContractError, ContractResult},
+    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
+    state::{State, STATE},
 };
 use cosmwasm_std::{
     to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
@@ -11,7 +14,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn instantiate(
     deps: DepsMut<DydxQueryWrapper>,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> ContractResult<Response<DydxMsg>> {
@@ -22,8 +25,9 @@ pub fn instantiate(
     }
 
     let state = State {
-        owner: owner.clone(),
+        admin: owner.clone(),
         trader: owner,
+        contract: env.contract.address,
     };
     STATE.save(deps.storage, &state)?;
 
@@ -100,22 +104,27 @@ pub fn execute(
     }
 }
 
-pub fn query(deps: Deps<DydxQueryWrapper>, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<DydxQueryWrapper>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     use QueryMsg::*;
     match msg {
         Trader => to_json_binary(&crate::query::trader(deps)?),
         Vaults => to_json_binary(&crate::query::vaults(deps)?),
-        VaultOwnership { perp_id, depositor } => to_json_binary(&crate::query::vault_ownership(
-            deps, env, perp_id, depositor,
-        )?),
+        VaultOwnership { perp_id, depositor } => {
+            to_json_binary(&crate::query::vault_ownership(deps, perp_id, depositor)?)
+        }
         DydxSubaccount { owner, number } => {
             to_json_binary(&crate::query::dydx_subaccount(deps, owner, number)?)
         }
         LiquidityTiers => to_json_binary(&crate::query::liquidity_tiers(deps)?),
+        Withdrawals { perp_id } => to_json_binary(&crate::query::withdrawals(deps, perp_id)?),
     }
 }
 
-pub fn migrate(deps: DepsMut<DydxQueryWrapper>, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(
+    deps: DepsMut<DydxQueryWrapper>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> StdResult<Response> {
     let ver = cw2::get_contract_version(deps.storage)?;
     // ensure we are migrating from an allowed contract
     if ver.contract != CONTRACT_NAME {
