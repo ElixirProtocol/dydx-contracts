@@ -107,6 +107,7 @@ pub fn query(deps: Deps<DydxQueryWrapper>, env: Env, msg: QueryMsg) -> StdResult
         )?),
         DydxSubaccount { owner, number } => {
             to_json_binary(&crate::query::dydx_subaccount(deps, owner, number)?)
-        }
+        },
+        LiquidityTiers => to_json_binary(&crate::query::liquidity_tiers(deps)?)
     }
 }

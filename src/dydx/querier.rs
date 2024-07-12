@@ -1,10 +1,9 @@
 use cosmwasm_std::{QuerierWrapper, StdResult};
 
 use super::{
-    proto_structs::{MarketPrice, PerpetualClobDetails, Subaccount},
+    proto_structs::{LiquidityTier, MarketPrice, PerpetualClobDetails, Subaccount},
     query::{
-        DydxQuery, DydxQueryWrapper, DydxRoute, MarketPriceResponse, PerpetualClobDetailsResponse,
-        SubaccountResponse,
+        DydxQuery, DydxQueryWrapper, DydxRoute, LiquidityTiersResponse, MarketPriceResponse, PerpetualClobDetailsResponse, SubaccountResponse
     },
 };
 
@@ -60,6 +59,22 @@ impl<'a> DydxQuerier<'a> {
             self.querier.query::<PerpetualClobDetails>(&request);
         Ok(PerpetualClobDetailsResponse {
             perpetual_clob_details: result?,
+        })
+    }
+
+    pub fn query_liquidity_tiers(
+        &self,
+    ) -> StdResult<LiquidityTiersResponse> {
+        let request = DydxQueryWrapper {
+            route: DydxRoute::LiquidityTiers,
+            query_data: DydxQuery::LiquidityTiers,
+        }
+        .into();
+
+        let result: Result<Vec<LiquidityTier>, cosmwasm_std::StdError> =
+            self.querier.query::<Vec<LiquidityTier>>(&request);
+        Ok(LiquidityTiersResponse {
+            liquidity_tiers: result?,
         })
     }
 }

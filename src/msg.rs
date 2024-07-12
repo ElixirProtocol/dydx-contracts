@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, CustomQuery, Decimal, Uint128};
 
-use crate::{dydx::proto_structs::Subaccount, execute::order::NewOrder, state::VaultStatus};
+use crate::{dydx::{proto_structs::Subaccount, query::LiquidityTiersResponse}, execute::order::NewOrder, state::VaultStatus};
 
 #[cw_serde]
 #[serde(rename_all = "snake_case")]
@@ -20,6 +20,8 @@ pub enum QueryMsg {
     VaultOwnership { perp_id: u32, depositor: String },
     #[returns(DydxSubaccountResponse)]
     DydxSubaccount { owner: String, number: u32 },
+    #[returns(LiquidityTiersResponse)]
+    LiquidityTiers
 }
 
 impl CustomQuery for QueryMsg {}

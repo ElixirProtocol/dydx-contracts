@@ -1,7 +1,7 @@
 use crate::{
     dydx::{
         querier::DydxQuerier,
-        query::{DydxQueryWrapper, PerpetualClobDetailsResponse},
+        query::{DydxQueryWrapper, LiquidityTiersResponse, PerpetualClobDetailsResponse},
     },
     error::{ContractError, ContractResult},
     execute::{USDC_DENOM, USDC_ID},
@@ -20,6 +20,13 @@ pub fn perp_clob_details(
 ) -> StdResult<PerpetualClobDetailsResponse> {
     let querier = DydxQuerier::new(&deps.querier);
     querier.query_perpetual_clob_details(perp_id)
+}
+
+pub fn liquidity_tiers(
+    deps: Deps<DydxQueryWrapper>,
+) -> StdResult<LiquidityTiersResponse> {
+    let querier = DydxQuerier::new(&deps.querier);
+    querier.query_liquidity_tiers()
 }
 
 pub fn trader(deps: Deps<DydxQueryWrapper>) -> StdResult<TraderResponse> {
