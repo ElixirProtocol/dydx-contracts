@@ -5,7 +5,7 @@ mod tests {
     use cw_multi_test::Executor;
     use elixir_dydx_integration::{
         dydx::msg::{OrderSide, OrderTimeInForce},
-        execute::order::NewOrder,
+        execute::market_make::NewOrder,
         msg::ExecuteMsg,
     };
 

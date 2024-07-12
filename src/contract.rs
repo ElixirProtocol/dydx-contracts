@@ -86,7 +86,7 @@ pub fn execute(
             new_orders,
             cancel_client_ids,
             cancel_good_til_block,
-        } => crate::execute::order::market_make(
+        } => crate::execute::market_make::market_make(
             deps,
             env,
             info,

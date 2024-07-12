@@ -3,7 +3,7 @@ use cosmwasm_std::{Addr, CustomQuery, Decimal, Uint128};
 
 use crate::{
     dydx::{proto_structs::Subaccount, query::LiquidityTiersResponse},
-    execute::order::NewOrder,
+    execute::market_make::NewOrder,
 };
 
 #[cw_serde]

@@ -6,4 +6,4 @@ pub const USDC_COIN_TYPE: &str =
 pub mod admin;
 pub mod deposit_withdraw;
 pub mod helpers;
-pub mod order;
+pub mod market_make;
