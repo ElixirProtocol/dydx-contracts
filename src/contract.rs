@@ -1,10 +1,13 @@
 use crate::{
-    dydx::{msg::DydxMsg, query::DydxQueryWrapper},
-    error::{ContractError, ContractResult},
-    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::{State, STATE},
+    dydx::{msg::DydxMsg, query::DydxQueryWrapper}, error::{ContractError, ContractResult}, msg::{ExecuteMsg, InstantiateMsg, QueryMsg}, state::{State, STATE}
 };
-use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{
+    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+};
+use cw20_base::msg::MigrateMsg;
+
+const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
+const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn instantiate(
     deps: DepsMut<DydxQueryWrapper>,
@@ -101,13 +104,38 @@ pub fn query(deps: Deps<DydxQueryWrapper>, env: Env, msg: QueryMsg) -> StdResult
     use QueryMsg::*;
     match msg {
         Trader => to_json_binary(&crate::query::trader(deps)?),
-        VaultState { perp_id } => to_json_binary(&crate::query::vault_state(deps, perp_id)?),
+        Vaults => to_json_binary(&crate::query::vaults(deps)?),
         VaultOwnership { perp_id, depositor } => to_json_binary(&crate::query::vault_ownership(
             deps, env, perp_id, depositor,
         )?),
         DydxSubaccount { owner, number } => {
             to_json_binary(&crate::query::dydx_subaccount(deps, owner, number)?)
-        },
-        LiquidityTiers => to_json_binary(&crate::query::liquidity_tiers(deps)?)
+        }
+        LiquidityTiers => to_json_binary(&crate::query::liquidity_tiers(deps)?),
     }
+}
+
+pub fn migrate(deps: DepsMut<DydxQueryWrapper>, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    let ver = cw2::get_contract_version(deps.storage)?;
+    // ensure we are migrating from an allowed contract
+    if ver.contract != CONTRACT_NAME {
+        return Err(StdError::generic_err("Can only upgrade from same type").into());
+    }
+    // note: better to do proper semver compare, but string compare *usually* works
+    if ver.version >= CONTRACT_VERSION.to_string() {
+        return Err(StdError::generic_err("Cannot upgrade from a newer version").into());
+    }
+    // set the new version
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    // see https://medium.com/cosmwasm/cosmwasm-for-ctos-ii-advanced-usage-ee04ce95d1d0 for migration details
+    // and note that migrate is called on the new version of the code
+    // the smart contract should:
+    // 1. copy existing vaults
+    // 2. copy LP token state
+    // 3. copy withdrawal queues
+
+    // since the smart contract address is the same, migration of funds in dYdX subaccounts is not necessary
+
+    Ok(Response::default())
 }

@@ -5,7 +5,7 @@ use crate::dydx::msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce}
 use crate::dydx::querier::DydxQuerier;
 use crate::dydx::query::DydxQueryWrapper;
 use crate::error::ContractResult;
-use crate::state::VAULT_STATES_BY_PERP_ID;
+use crate::state::VAULTS_BY_PERP_ID;
 use crate::{error::ContractError, state::STATE};
 
 #[cw_serde]
@@ -46,7 +46,7 @@ pub fn market_make(
     // validate sender (must be configured trader)
     if info.sender != &state.trader {
         return Err(ContractError::SenderIsNotTrader {
-            addr: info.sender.to_string(),
+            sender: info.sender,
         });
     }
 
@@ -60,7 +60,7 @@ pub fn market_make(
     }
 
     // validate vault
-    if !VAULT_STATES_BY_PERP_ID.has(deps.storage, perp_id) {
+    if !VAULTS_BY_PERP_ID.has(deps.storage, perp_id) {
         return Err(ContractError::VaultNotInitialized { perp_id });
     }
 

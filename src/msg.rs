@@ -1,7 +1,10 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, CustomQuery, Decimal, Uint128};
 
-use crate::{dydx::{proto_structs::Subaccount, query::LiquidityTiersResponse}, execute::order::NewOrder, state::VaultStatus};
+use crate::{
+    dydx::{proto_structs::Subaccount, query::LiquidityTiersResponse},
+    execute::order::NewOrder,
+};
 
 #[cw_serde]
 #[serde(rename_all = "snake_case")]
@@ -14,14 +17,14 @@ pub struct InstantiateMsg {
 pub enum QueryMsg {
     #[returns(TraderResponse)]
     Trader,
-    #[returns(VaultStateResponse)]
-    VaultState { perp_id: u32 },
+    #[returns(VaultsResponse)]
+    Vaults,
     #[returns(VaultOwnershipResponse)]
     VaultOwnership { perp_id: u32, depositor: String },
     #[returns(DydxSubaccountResponse)]
     DydxSubaccount { owner: String, number: u32 },
     #[returns(LiquidityTiersResponse)]
-    LiquidityTiers
+    LiquidityTiers,
 }
 
 impl CustomQuery for QueryMsg {}
@@ -69,10 +72,9 @@ pub struct TraderResponse {
 }
 
 #[cw_serde]
-pub struct VaultStateResponse {
-    pub subaccount_owner: String,
-    pub subaccount_number: u32,
-    pub status: VaultStatus,
+pub struct VaultsResponse {
+    /// perp ids
+    pub vaults: Vec<u32>,
 }
 
 #[cw_serde]

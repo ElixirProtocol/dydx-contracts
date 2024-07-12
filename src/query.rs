@@ -7,11 +7,11 @@ use crate::{
     execute::{USDC_DENOM, USDC_ID},
     msg::{
         DydxSubaccountResponse, LpTokenBalanceResponse, TokenInfoResponse, TraderResponse,
-        VaultOwnershipResponse, VaultStateResponse,
+        VaultOwnershipResponse, VaultsResponse,
     },
-    state::{LP_BALANCES, LP_TOKENS, STATE, VAULT_STATES_BY_PERP_ID},
+    state::{LP_BALANCES, LP_TOKENS, STATE, VAULTS_BY_PERP_ID},
 };
-use cosmwasm_std::{Decimal, Deps, Env, StdResult};
+use cosmwasm_std::{Decimal, Deps, Env, Order, StdResult};
 use num_traits::ToPrimitive;
 
 pub fn perp_clob_details(
@@ -22,9 +22,7 @@ pub fn perp_clob_details(
     querier.query_perpetual_clob_details(perp_id)
 }
 
-pub fn liquidity_tiers(
-    deps: Deps<DydxQueryWrapper>,
-) -> StdResult<LiquidityTiersResponse> {
+pub fn liquidity_tiers(deps: Deps<DydxQueryWrapper>) -> StdResult<LiquidityTiersResponse> {
     let querier = DydxQuerier::new(&deps.querier);
     querier.query_liquidity_tiers()
 }
@@ -36,13 +34,10 @@ pub fn trader(deps: Deps<DydxQueryWrapper>) -> StdResult<TraderResponse> {
     })
 }
 
-pub fn vault_state(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<VaultStateResponse> {
-    let vault = VAULT_STATES_BY_PERP_ID.load(deps.storage, perp_id)?;
-    Ok(VaultStateResponse {
-        subaccount_owner: vault.subaccount_id.owner,
-        subaccount_number: vault.subaccount_id.number,
-        status: vault.status,
-    })
+pub fn vaults(deps: Deps<DydxQueryWrapper>) -> StdResult<VaultsResponse> {
+    let vault = VAULTS_BY_PERP_ID.keys(deps.storage, None, None, Order::Ascending);
+    let vaults: Vec<u32> = vault.map(|i| i.unwrap()).collect();
+    Ok(VaultsResponse { vaults })
 }
 
 pub fn vault_ownership(

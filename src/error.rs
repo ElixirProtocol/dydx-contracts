@@ -9,14 +9,12 @@ pub enum ContractError {
     StdError(#[from] StdError),
     #[error("Provided owner: {owner} does not match the sender")]
     InvalidOwnerDuringInstantiation { owner: Addr },
-    #[error("{sender} does not have permission to modify trader")]
-    SenderCannotModifyTrader { sender: Addr },
+    #[error("{sender} is not the trader")]
+    SenderIsNotTrader { sender: Addr },
     #[error("The new trader must be different from the old one")]
     NewTraderMustNotBeCurrentTrader,
     #[error("An invalid address was provided: {addr}")]
     InvalidAddress { addr: String },
-    #[error("{addr} cannot place/cancel trades")]
-    SenderIsNotTrader { addr: String },
     #[error("{sender} does not have permission to create vaults")]
     SenderCannotCreateVault { sender: Addr },
     #[error("{sender} does not have permission to process withdrawals")]

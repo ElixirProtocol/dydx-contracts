@@ -9,7 +9,7 @@ use crate::execute::helpers::{
 };
 use crate::execute::{USDC_COIN_TYPE, USDC_DENOM, USDC_ID};
 use crate::query::{lp_token_info, query_validated_dydx_position};
-use crate::state::{Withdrawal, VAULT_STATES_BY_PERP_ID, WITHDRAWAL_QUEUES};
+use crate::state::{Withdrawal, VAULTS_BY_PERP_ID, WITHDRAWAL_QUEUES};
 use crate::{error::ContractError, state::STATE};
 
 use super::helpers::{
@@ -46,7 +46,7 @@ pub fn deposit_into_vault(
     }
 
     // assert vault exists
-    if !VAULT_STATES_BY_PERP_ID.has(deps.storage, perp_id) {
+    if !VAULTS_BY_PERP_ID.has(deps.storage, perp_id) {
         return Err(ContractError::VaultNotInitialized { perp_id });
     }
 

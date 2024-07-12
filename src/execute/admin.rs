@@ -4,12 +4,10 @@ use cw20_base::state::{MinterData, TokenInfo};
 use crate::dydx::msg::DydxMsg;
 use crate::dydx::query::DydxQueryWrapper;
 use crate::error::ContractResult;
-use crate::state::{
-    VaultState, VaultStatus, LP_TOKENS, VAULT_STATES_BY_PERP_ID, WITHDRAWAL_QUEUES,
-};
+use crate::state::{LP_TOKENS, VAULTS_BY_PERP_ID, WITHDRAWAL_QUEUES};
 use crate::{error::ContractError, state::STATE};
 
-use super::helpers::{get_contract_subaccount_id, validate_addr_string, verify_owner_or_trader};
+use super::helpers::{validate_addr_string, verify_trader};
 use super::USDC_DENOM;
 
 pub fn set_trader(
@@ -20,7 +18,7 @@ pub fn set_trader(
     let mut state = STATE.load(deps.storage)?;
     let old_trader_addr = &state.trader;
 
-    verify_owner_or_trader(&info.sender, &state.owner, &state.trader)?;
+    verify_trader(&info.sender, &state.trader)?;
     let new_trader_addr = validate_addr_string(&deps, new_trader.clone())?;
 
     // new trader must not be old trader
@@ -50,21 +48,14 @@ pub fn create_vault(
     perp_id: u32,
 ) -> ContractResult<Response<DydxMsg>> {
     let state = STATE.load(deps.storage)?;
-    verify_owner_or_trader(&info.sender, &state.owner, &state.trader)?;
+    verify_trader(&info.sender, &state.trader)?;
 
-    if VAULT_STATES_BY_PERP_ID.has(deps.storage, perp_id) {
+    if VAULTS_BY_PERP_ID.has(deps.storage, perp_id) {
         return Err(ContractError::VaultAlreadyInitialized { perp_id });
     }
 
-    let subaccount_id = get_contract_subaccount_id(&env, perp_id);
-
-    let vault_state = VaultState {
-        subaccount_id: subaccount_id.clone(),
-        status: VaultStatus::Open,
-    };
-
     // save new vault
-    VAULT_STATES_BY_PERP_ID.save(deps.storage, perp_id, &vault_state)?;
+    VAULTS_BY_PERP_ID.save(deps.storage, perp_id, &true)?;
     WITHDRAWAL_QUEUES.save(deps.storage, perp_id, &Vec::with_capacity(10))?;
 
     // create LP token using cw20-base format

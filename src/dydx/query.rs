@@ -10,7 +10,7 @@ pub enum DydxRoute {
     MarketPrice,
     Subaccount,
     PerpetualClobDetails,
-    LiquidityTiers
+    LiquidityTiers,
 }
 
 /// SeiQueryWrapper is an override of QueryRequest::Custom to access Sei-specific modules
@@ -31,7 +31,7 @@ pub enum DydxQuery {
     MarketPrice { id: u32 },
     Subaccount { owner: String, number: u32 },
     PerpetualClobDetails { id: u32 },
-    LiquidityTiers
+    LiquidityTiers,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

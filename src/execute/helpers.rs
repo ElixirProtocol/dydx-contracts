@@ -10,9 +10,9 @@ use cosmwasm_std::{
     Uint128,
 };
 
-pub fn verify_owner_or_trader(sender: &Addr, owner: &Addr, trader: &Addr) -> ContractResult<()> {
-    if sender != owner && sender != trader {
-        return Err(ContractError::SenderCannotModifyTrader {
+pub fn verify_trader(sender: &Addr, trader: &Addr) -> ContractResult<()> {
+    if sender != trader {
+        return Err(ContractError::SenderIsNotTrader {
             sender: sender.clone(),
         });
     } else {
