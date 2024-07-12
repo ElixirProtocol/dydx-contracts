@@ -143,12 +143,7 @@ pub enum DydxMsg {
         order_flags: u32,
         clob_pair_id: u32,
         good_til_block_time: u32,
-    },
-    BatchCancelV1 {
-        subaccount_number: u32,
-        short_term_cancels: Vec<OrderBatch>,
-        good_til_block: u32,
-    },
+    }
 }
 
 impl From<DydxMsg> for CosmosMsg<DydxMsg> {
