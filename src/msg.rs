@@ -32,14 +32,12 @@ pub enum ExecuteMsg {
     CreateVault {
         perp_id: u32,
     },
-    FreezeVault {
+    ModifyVaultFee {
         perp_id: u32,
     },
-    ThawVault {
+    CollectFeesFromVault {
         perp_id: u32,
     },
-    // ModifyVaultFee,
-    // CollectFeesFromVault,
     DepositIntoVault {
         perp_id: u32,
     },

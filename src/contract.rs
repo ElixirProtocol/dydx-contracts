@@ -40,11 +40,12 @@ pub fn execute(
         ExecuteMsg::CreateVault { perp_id } => {
             crate::execute::admin::create_vault(deps, env, info, perp_id).map_err(Into::into)
         }
-        ExecuteMsg::FreezeVault { perp_id } => {
-            crate::execute::admin::freeze_vault(deps, info, perp_id).map_err(Into::into)
+        ExecuteMsg::ModifyVaultFee { perp_id } => {
+            crate::execute::admin::modify_vault_fee(deps, env, info, perp_id).map_err(Into::into)
         }
-        ExecuteMsg::ThawVault { perp_id } => {
-            crate::execute::admin::thaw_vault(deps, info, perp_id).map_err(Into::into)
+        ExecuteMsg::CollectFeesFromVault { perp_id } => {
+            crate::execute::admin::collect_fees_from_vault(deps, env, info, perp_id)
+                .map_err(Into::into)
         }
         ExecuteMsg::DepositIntoVault { perp_id } => {
             crate::execute::deposit_withdraw::deposit_into_vault(deps, env, info, perp_id)

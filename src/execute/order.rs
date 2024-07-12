@@ -55,7 +55,7 @@ pub fn market_make(
         return Err(ContractError::PerpMarketClobIdMismatch {
             queried_id: perp_details.perpetual_clob_details.clob_pair.id,
             supplied_id: clob_pair_id,
-            perp_id
+            perp_id,
         });
     }
 
@@ -111,4 +111,3 @@ pub fn market_make(
     }
     Ok(response)
 }
-

@@ -86,72 +86,22 @@ pub fn create_vault(
     Ok(Response::new().add_attribute("method", "create_vault"))
 }
 
-/// Freezes the vault (prevents placing any orders). For now, deposits/withdrawals and cancelling orders are allowed.
-/// This can only be done by the current trader.
-pub fn freeze_vault(
-    deps: DepsMut<DydxQueryWrapper>,
-    info: MessageInfo,
-    perp_id: u32,
+/// Changes the vault fee. For now this is method is unused and will throw an error if called.
+pub fn modify_vault_fee(
+    _deps: DepsMut<DydxQueryWrapper>,
+    _env: Env,
+    _info: MessageInfo,
+    _perp_id: u32,
 ) -> ContractResult<Response<DydxMsg>> {
-    if !VAULT_STATES_BY_PERP_ID.has(deps.storage, perp_id) {
-        return Err(ContractError::VaultNotInitialized { perp_id });
-    }
-
-    let mut vault_state = VAULT_STATES_BY_PERP_ID.load(deps.storage, perp_id)?;
-    let trader_addr = deps.api.addr_validate(&vault_state.subaccount_id.owner)?;
-    // sender must be current trader
-    if trader_addr != info.sender {
-        return Err(ContractError::SenderCannotFreezeVault {
-            sender: info.sender,
-        });
-    }
-
-    match vault_state.status {
-        VaultStatus::Open => {
-            vault_state.status = VaultStatus::Frozen;
-            VAULT_STATES_BY_PERP_ID.save(deps.storage, perp_id, &vault_state)?;
-        }
-        VaultStatus::Frozen => return Err(ContractError::VaultAlreadyFrozen { perp_id }),
-    }
-
-    let event = Event::new("vault_frozen").add_attribute("id", perp_id.to_string());
-
-    Ok(Response::new()
-        .add_attribute("method", "freeze_vault")
-        .add_event(event))
+    return Err(ContractError::NotImplemented {});
 }
 
-/// Thaws the vault (allow placing orders).
-/// This can only be done by the current trader.
-pub fn thaw_vault(
-    deps: DepsMut<DydxQueryWrapper>,
-    info: MessageInfo,
-    perp_id: u32,
+/// Changes the vault fee. For now this is method is unused and will throw an error if called.
+pub fn collect_fees_from_vault(
+    _deps: DepsMut<DydxQueryWrapper>,
+    _env: Env,
+    _info: MessageInfo,
+    _perp_id: u32,
 ) -> ContractResult<Response<DydxMsg>> {
-    if !VAULT_STATES_BY_PERP_ID.has(deps.storage, perp_id) {
-        return Err(ContractError::VaultNotInitialized { perp_id });
-    }
-
-    let mut vault_state = VAULT_STATES_BY_PERP_ID.load(deps.storage, perp_id)?;
-    let trader_addr = deps.api.addr_validate(&vault_state.subaccount_id.owner)?;
-    // sender must be current trader
-    if trader_addr != info.sender {
-        return Err(ContractError::SenderCannotThawVault {
-            sender: info.sender,
-        });
-    }
-
-    match vault_state.status {
-        VaultStatus::Open => return Err(ContractError::VaultAlreadyOpen { perp_id }),
-        VaultStatus::Frozen => {
-            vault_state.status = VaultStatus::Open;
-            VAULT_STATES_BY_PERP_ID.save(deps.storage, perp_id, &vault_state)?;
-        }
-    }
-
-    let event = Event::new("vault_thawed").add_attribute("id", perp_id.to_string());
-
-    Ok(Response::new()
-        .add_attribute("method", "thaw_vault")
-        .add_event(event))
+    return Err(ContractError::NotImplemented {});
 }
