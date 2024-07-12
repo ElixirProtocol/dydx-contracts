@@ -17,6 +17,8 @@ pub struct InstantiateMsg {
 pub enum QueryMsg {
     #[returns(TraderResponse)]
     Trader,
+    #[returns(LpTokenBalanceResponse)]
+    UserLpTokens { perp_id: u32, user: String },
     #[returns(VaultsResponse)]
     Vaults,
     #[returns(VaultOwnershipResponse)]
@@ -108,6 +110,7 @@ pub struct DydxSubaccountResponse {
 
 #[cw_serde]
 pub struct LpTokenBalanceResponse {
+    pub perp_id: u32,
     pub balance: Uint128,
 }
 

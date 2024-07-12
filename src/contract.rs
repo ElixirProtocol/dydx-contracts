@@ -117,6 +117,9 @@ pub fn query(deps: Deps<DydxQueryWrapper>, _env: Env, msg: QueryMsg) -> StdResul
         }
         LiquidityTiers => to_json_binary(&crate::query::liquidity_tiers(deps)?),
         Withdrawals { perp_id } => to_json_binary(&crate::query::withdrawals(deps, perp_id)?),
+        UserLpTokens { perp_id, user } => {
+            to_json_binary(&crate::query::lp_balance(deps, perp_id, user)?)
+        }
     }
 }
 

@@ -26,7 +26,6 @@ pub fn deposit_into_vault(
     perp_id: u32,
 ) -> ContractResult<Response<DydxMsg>> {
     let subaccount_id = get_contract_subaccount_id(&env, perp_id);
-    let querier = DydxQuerier::new(&deps.querier);
     let amount = info.funds[0].amount;
 
     // assert that user is depositing only USDC with a non-zero amount

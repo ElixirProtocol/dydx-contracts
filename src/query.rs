@@ -79,7 +79,7 @@ pub fn vault_ownership(
     let state = STATE.load(deps.storage)?;
     let vp = query_validated_dydx_position(deps, perp_id).unwrap();
 
-    let raw_depositor_balance = balance(deps, perp_id, depositor)?;
+    let raw_depositor_balance = lp_balance(deps, perp_id, depositor)?;
     let lp_token_info = lp_token_info(deps, perp_id)?;
 
     Ok(VaultOwnershipResponse {
@@ -102,7 +102,7 @@ pub fn dydx_subaccount(
     Ok(DydxSubaccountResponse { subaccount })
 }
 
-pub fn balance(
+pub fn lp_balance(
     deps: Deps<DydxQueryWrapper>,
     perp_id: u32,
     address: String,
@@ -111,7 +111,7 @@ pub fn balance(
     let balance = LP_BALANCES
         .may_load(deps.storage, (perp_id, &address))?
         .unwrap_or_default();
-    Ok(LpTokenBalanceResponse { balance })
+    Ok(LpTokenBalanceResponse { perp_id, balance })
 }
 
 pub fn lp_token_info(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<TokenInfoResponse> {
@@ -202,10 +202,9 @@ pub fn query_validated_dydx_position(
 /// Queries dYdX for
 /// Throws an error if the subaccount has any unexpected assets.
 pub fn query_validated_dydx_free_collateral(
-    querier: &DydxQuerier,
-    env: &Env,
-    perp_id: u32,
+    _querier: &DydxQuerier,
+    _env: &Env,
+    _perp_id: u32,
 ) -> ContractResult<u64> {
-
     Ok(0)
 }
