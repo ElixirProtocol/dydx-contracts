@@ -1,12 +1,16 @@
+use core::fmt;
+
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
+use cosmwasm_std::{Decimal, DepsMut, Env, MessageInfo, Response};
 
 use crate::dydx::msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce};
 use crate::dydx::querier::DydxQuerier;
 use crate::dydx::query::DydxQueryWrapper;
 use crate::error::ContractResult;
+use crate::query::query_validated_dydx_position;
 use crate::state::VAULTS_BY_PERP_ID;
 use crate::{error::ContractError, state::STATE};
+use super::USDC_DENOM;
 
 #[cw_serde]
 pub struct NewOrder {
@@ -19,6 +23,24 @@ pub struct NewOrder {
     pub reduce_only: bool,
     pub client_metadata: u32,
     pub conditional_order_trigger_subticks: u64,
+}
+
+impl fmt::Display for NewOrder {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "NewOrder {{ client_id: {}, side: {:?}, quantums: {}, subticks: {}, good_til_block_time: {}, time_in_force: {:?}, reduce_only: {}, client_metadata: {}, conditional_order_trigger_subticks: {} }}",
+            self.client_id,
+            self.side,
+            self.quantums,
+            self.subticks,
+            self.good_til_block_time,
+            self.time_in_force,
+            self.reduce_only,
+            self.client_metadata,
+            self.conditional_order_trigger_subticks
+        )
+    }
 }
 
 pub const LONG_TERM_ORDER_FLAGS: u32 = 64;
@@ -42,6 +64,9 @@ pub fn market_make(
 
     let querier = DydxQuerier::new(&deps.querier);
     let perp_details = querier.query_perpetual_clob_details(perp_id)?;
+    let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
+    let mut asset_value = vp.asset_usdc_value.clone();
+    let mut perp_value = vp.perp_usdc_value.clone();
 
     // validate sender (must be configured trader)
     if info.sender != &state.trader {
@@ -82,9 +107,28 @@ pub fn market_make(
         }
     }
 
+    let mut num_bids = 0;
+    let mut num_asks = 0;
     // then add new orders
     if new_orders.len() > 0 {
         for new_order in new_orders {
+            let order_value = Decimal::from_atomics(new_order.quantums, USDC_DENOM).unwrap();
+            if order_value > asset_value || asset_value < perp_value + (order_value + order_value) {
+                return Err(ContractError::NewOrderWouldIncreaseLeverageTooMuch {
+                    perp_id,
+                    new_order,
+                });
+            }
+
+            match new_order.side {
+                OrderSide::Unspecified => (),
+                OrderSide::Buy => num_bids += 1,
+                OrderSide::Sell => num_asks += 1,
+            };
+
+            asset_value -= order_value;
+            perp_value += order_value;
+
             // let event = order.get_place_event();
             let place_msg = DydxMsg::PlaceOrderV1 {
                 subaccount_number,
@@ -105,5 +149,11 @@ pub fn market_make(
                 .add_message(place_msg);
         }
     }
+
+    // validate at most 3 orders per side
+    if num_bids > 3 || num_asks > 3 {
+        return  Err(ContractError::CanOnlyPlaceThreeOrdersPerSide{});
+    }
+
     Ok(response)
 }

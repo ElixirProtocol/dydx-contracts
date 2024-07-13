@@ -1,6 +1,8 @@
 use cosmwasm_std::{Addr, StdError};
 use thiserror::Error;
 
+use crate::execute::market_make::NewOrder;
+
 pub type ContractResult<T> = Result<T, ContractError>;
 
 #[derive(Error, Debug, PartialEq)]
@@ -69,6 +71,15 @@ pub enum ContractError {
 
     #[error("Tried to withdraw an invalid amount of: {coin_type}, {amount}")]
     InvalidWithdrawalAmount { coin_type: String, amount: u128 },
+
+    #[error("Withdrawal would increase leverage over 1x for subaccount with perp_id: {perp_id}")]
+    WithdrawalWouldIncreaseLeverageTooMuch { perp_id: u32 },
+
+    #[error("New order would increase leverage over 1x for subaccount with perp_id: {perp_id}, {new_order}")]
+    NewOrderWouldIncreaseLeverageTooMuch { perp_id: u32, new_order: NewOrder },
+
+    #[error("Trader can only place at most 3 bids and 3 asks at a time")]
+    CanOnlyPlaceThreeOrdersPerSide {},
 
     #[error("Could not find LP tokens with perp_id: {perp_id} for {user}")]
     LpTokensNotFound { user: Addr, perp_id: u32 },
