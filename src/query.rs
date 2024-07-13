@@ -199,12 +199,12 @@ pub fn query_validated_dydx_position(
     Ok(validated_position)
 }
 
-/// Queries dYdX for
-/// Throws an error if the subaccount has any unexpected assets.
-pub fn query_validated_dydx_free_collateral(
-    _querier: &DydxQuerier,
-    _env: &Env,
-    _perp_id: u32,
-) -> ContractResult<u64> {
-    Ok(0)
-}
+// /// Queries the smart contract owned dYdX subaccountd for free collateral
+// /// Throws an error if the subaccount has any unexpected assets.
+// pub fn query_validated_dydx_free_collateral(
+//     _querier: &DydxQuerier,
+//     _env: &Env,
+//     _perp_id: u32,
+// ) -> ContractResult<u64> {
+//     Ok(0)
+// }

@@ -1,5 +1,5 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::{borrow::BorrowMut, cell::RefCell};
 
 use cosmwasm_std::{
     coin,
@@ -7,18 +7,16 @@ use cosmwasm_std::{
     to_json_binary, Addr, Api, Attribute, Binary, BlockInfo, CustomMsg, CustomQuery, Event,
     Querier, Storage,
 };
-use cosmwasm_std::{
-    from_json, QuerierResult, QuerierWrapper, QueryRequest, StdResult, SystemError,
-};
 use cw_multi_test::{
     error::{bail, AnyResult},
     App, AppBuilder, AppResponse, BankKeeper, Contract, ContractWrapper, CosmosRouter,
     DistributionKeeper, Executor, GovFailingModule, IbcFailingModule, Module, StakeKeeper,
     StargateFailingModule, SudoMsg, WasmKeeper,
 };
-use elixir_dydx_integration::dydx::proto_structs::{AssetPosition, SubaccountId};
+use elixir_dydx_integration::dydx::proto_structs::{
+    AssetPosition, PerpetualPosition, SubaccountId,
+};
 use elixir_dydx_integration::dydx::query::{DydxQuery, DydxQueryWrapper};
-use elixir_dydx_integration::msg::QueryMsg;
 use elixir_dydx_integration::{
     dydx::{
         msg::DydxMsg,
@@ -87,6 +85,7 @@ pub fn test_setup() -> (ElixirTestApp, u64, Vec<Addr>) {
     (app, code_id, vec![owner, user1, user2, user3, user4])
 }
 
+#[allow(dead_code)]
 pub fn instantiate_contract(app: &mut ElixirTestApp, code_id: u64, owner: Addr) -> Addr {
     app.instantiate_contract(
         code_id,
@@ -101,6 +100,7 @@ pub fn instantiate_contract(app: &mut ElixirTestApp, code_id: u64, owner: Addr) 
     .unwrap()
 }
 
+#[allow(dead_code)]
 pub fn instantiate_contract_with_trader_and_vault(
     app: &mut ElixirTestApp,
     code_id: u64,
@@ -143,6 +143,7 @@ pub fn instantiate_contract_with_trader_and_vault(
     app_addr
 }
 
+#[allow(dead_code)]
 pub fn mint_native(app: &mut ElixirTestApp, beneficiary: String, denom: String, amount: u128) {
     app.sudo(cw_multi_test::SudoMsg::Bank(
         cw_multi_test::BankSudo::Mint {
@@ -153,6 +154,7 @@ pub fn mint_native(app: &mut ElixirTestApp, beneficiary: String, denom: String, 
     .unwrap();
 }
 
+#[allow(dead_code)]
 pub fn fetch_attributes(resp: &AppResponse, key: String) -> Vec<Attribute> {
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
     wasm.attributes
@@ -162,6 +164,7 @@ pub fn fetch_attributes(resp: &AppResponse, key: String) -> Vec<Attribute> {
         .collect()
 }
 
+#[allow(dead_code)]
 pub fn fetch_response_events(resp: &AppResponse, event_name: String) -> Vec<Event> {
     resp.events
         .iter()
@@ -195,6 +198,16 @@ impl TestDydx {
         } else {
             false
         }
+    }
+
+    /// Adds the input perp position to the contract owned subaccount
+    #[allow(dead_code)]
+    pub fn sudo_add_perp_position(&self, subaccount_number: u32, position: PerpetualPosition) {
+        let mut accounts = self.mock_subaccounts.borrow_mut();
+        let mut subaccount = accounts.get_mut(&subaccount_number).unwrap().clone();
+        subaccount.perpetual_positions.push(position);
+
+        accounts.insert(subaccount_number, subaccount);
     }
 }
 
@@ -317,9 +330,9 @@ impl Module for TestDydx {
             DydxMsg::CancelOrderV1 {
                 subaccount_number,
                 client_id,
-                order_flags,
-                clob_pair_id,
-                good_til_block_time,
+                order_flags: _,
+                clob_pair_id: _,
+                good_til_block_time: _,
             } => {
                 println!("CancelOrderV1");
 
@@ -419,171 +432,3 @@ impl Module for TestDydx {
         }
     }
 }
-
-pub struct MockDydxQuerier<'a> {
-    pub querier: &'a QuerierWrapper<'a, DydxQueryWrapper>,
-}
-
-impl Querier for MockDydxQuerier<'_> {
-    fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
-        println!("got raw query");
-        // Here you can define custom behavior for specific queries
-        let request: StdResult<QueryRequest<QueryMsg>> = from_json(bin_request);
-        // if let Ok(req) = request {
-        //     match req {
-        //         // Match on specific query types here
-        //         QueryRequest::Bank(bank_query) => match bank_query {
-        //             // Custom handling of Bank queries
-        //             _ => self.base.raw_query(bin_request),
-        //         },
-        //         _ => self.base.raw_query(bin_request),
-        //     }
-        // } else {
-        Err(SystemError::InvalidRequest {
-            error: "Failed to parse query request".to_string(),
-            request: bin_request.into(),
-        })
-        .into()
-        // }
-    }
-}
-
-// const CODE_ID: u64 = 154;
-// const EXECUTE_MSG: &str = "wasm execute called";
-// const QUERY_MSG: &str = "wasm query called";
-// const SUDO_MSG: &str = "wasm sudo called";
-// const DUPLICATE_CODE_MSG: &str = "wasm duplicate code called";
-// const CONTRACT_DATA_MSG: &str = "wasm contract data called";
-// static WASM_RAW: Lazy<Vec<Record>> = Lazy::new(|| vec![(vec![154u8], vec![155u8])]);
-
-// type DydxWasmKeeper = DydxKeeper<DydxMsg, DydxQueryWrapper, Empty>;
-
-// impl<ExecT, QueryT> Wasm<ExecT, QueryT> for DydxWasmKeeper {
-//     fn execute(
-//         &self,
-//         _api: &dyn Api,
-//         _storage: &mut dyn Storage,
-//         _router: &dyn CosmosRouter<ExecC = ExecT, QueryC = QueryT>,
-//         _block: &BlockInfo,
-//         _sender: Addr,
-//         _msg: WasmMsg,
-//     ) -> AnyResult<AppResponse> {
-//         bail!(self.1);
-//     }
-
-//     fn query(
-//         &self,
-//         _api: &dyn Api,
-//         _storage: &dyn Storage,
-//         _querier: &dyn Querier,
-//         _block: &BlockInfo,
-//         _request: WasmQuery,
-//     ) -> AnyResult<Binary> {
-//         bail!(self.2);
-//     }
-
-//     fn sudo(
-//         &self,
-//         _api: &dyn Api,
-//         _storage: &mut dyn Storage,
-//         _router: &dyn CosmosRouter<ExecC = ExecT, QueryC = QueryT>,
-//         _block: &BlockInfo,
-//         _msg: WasmSudo,
-//     ) -> AnyResult<AppResponse> {
-//         bail!(self.3);
-//     }
-
-//     fn store_code(&mut self, _creator: Addr, _code: Box<dyn Contract<ExecT, QueryT>>) -> u64 {
-//         CODE_ID
-//     }
-
-//     fn store_code_with_id(
-//         &mut self,
-//         _creator: Addr,
-//         code_id: u64,
-//         _code: Box<dyn Contract<ExecT, QueryT>>,
-//     ) -> AnyResult<u64> {
-//         Ok(code_id)
-//     }
-
-//     fn duplicate_code(&mut self, _code_id: u64) -> AnyResult<u64> {
-//         bail!(DUPLICATE_CODE_MSG);
-//     }
-
-//     fn contract_data(&self, _storage: &dyn Storage, _address: &Addr) -> AnyResult<ContractData> {
-//         bail!(CONTRACT_DATA_MSG);
-//     }
-
-//     fn dump_wasm_raw(&self, _storage: &dyn Storage, _address: &Addr) -> Vec<Record> {
-//         WASM_RAW.clone()
-//     }
-// }
-
-// pub struct DydxKeeper<ExecT, QueryT, SudoT>(
-//     PhantomData<(ExecT, QueryT, SudoT)>,
-//     &'static str,
-//     &'static str,
-//     &'static str,
-// );
-
-// impl<ExecT, QueryT, SudoT> DydxKeeper<ExecT, QueryT, SudoT> {
-//     fn new(execute_msg: &'static str, query_msg: &'static str, sudo_msg: &'static str) -> Self {
-//         Self(Default::default(), execute_msg, query_msg, sudo_msg)
-//     }
-// }
-
-// impl Module for DydxWasmKeeper
-// {
-//     type ExecT = DydxMsg;
-//     type QueryT = DydxQueryWrapper;
-//     type SudoT = Empty;
-
-//     fn execute<ExecC, QueryC>(
-//         &self,
-//         _api: &dyn Api,
-//         _storage: &mut dyn Storage,
-//         _router: &dyn CosmosRouter<ExecC = ExecC, QueryC = QueryC>,
-//         _block: &BlockInfo,
-//         _sender: Addr,
-//         msg: Self::ExecT,
-//     ) -> AnyResult<AppResponse>
-//     where
-//         ExecC: CustomMsg + DeserializeOwned + 'static,
-//         QueryC: CustomQuery + DeserializeOwned + 'static,
-//     {
-//         match msg {
-//             DydxMsg::DepositToSubaccount { recipient, asset_id, quantums } => todo!(),
-//             DydxMsg::WithdrawFromSubaccount { subaccount_number, recipient, asset_id, quantums } => todo!(),
-//             DydxMsg::PlaceOrder { subaccount_number, client_id, order_flags, clob_pair_id, side, quantums, subticks, good_til_block_time, time_in_force, reduce_only, client_metadata, condition_type, conditional_order_trigger_subticks } => todo!(),
-//             DydxMsg::CancelOrder { subaccount_number, client_id, order_flags, clob_pair_id, good_til_block_time } => todo!(),
-//             _ => todo!(),
-//         }
-//         bail!(self.1);
-//     }
-
-//     fn query(
-//         &self,
-//         _api: &dyn Api,
-//         _storage: &dyn Storage,
-//         _querier: &dyn Querier,
-//         _block: &BlockInfo,
-//         _request: Self::QueryT,
-//     ) -> AnyResult<Binary> {
-//         bail!(self.2);
-//     }
-
-//     fn sudo<ExecC, QueryC>(
-//         &self,
-//         _api: &dyn Api,
-//         _storage: &mut dyn Storage,
-//         _router: &dyn CosmosRouter<ExecC = ExecC, QueryC = QueryC>,
-//         _block: &BlockInfo,
-//         _msg: Self::SudoT,
-//     ) -> AnyResult<AppResponse>
-//     where
-//         ExecC: CustomMsg + DeserializeOwned + 'static,
-//         QueryC: CustomQuery + DeserializeOwned + 'static,
-//     {
-//         bail!(self.3);
-//     }
-// }

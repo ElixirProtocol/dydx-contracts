@@ -3,6 +3,7 @@ use core::fmt;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Decimal, DepsMut, Env, MessageInfo, Response};
 
+use super::USDC_DENOM;
 use crate::dydx::msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce};
 use crate::dydx::querier::DydxQuerier;
 use crate::dydx::query::DydxQueryWrapper;
@@ -10,7 +11,6 @@ use crate::error::ContractResult;
 use crate::query::query_validated_dydx_position;
 use crate::state::VAULTS_BY_PERP_ID;
 use crate::{error::ContractError, state::STATE};
-use super::USDC_DENOM;
 
 #[cw_serde]
 pub struct NewOrder {
@@ -152,7 +152,7 @@ pub fn market_make(
 
     // validate at most 3 orders per side
     if num_bids > 3 || num_asks > 3 {
-        return  Err(ContractError::CanOnlyPlaceThreeOrdersPerSide{});
+        return Err(ContractError::CanOnlyPlaceThreeOrdersPerSide {});
     }
 
     Ok(response)

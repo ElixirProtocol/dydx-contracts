@@ -247,6 +247,8 @@ pub fn process_withdrawals(
     }
 
     let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
+    let mut asset_value = vp.asset_usdc_value.clone();
+    let perp_value = vp.perp_usdc_value;
     let mut subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
 
     let (
@@ -273,14 +275,22 @@ pub fn process_withdrawals(
         let withdraw_value = ownership_fraction * subaccount_value;
         assert!(withdraw_value <= subaccount_value);
         assert!(ownership_fraction <= Decimal::one());
-        subaccount_value -= withdraw_value;
 
         let withdraw_quantums = decimal_to_native_round_down(withdraw_value, USDC_DENOM).unwrap();
+
+        subaccount_value -= withdraw_value;
+        asset_value -= withdraw_value;
+        // validate withdraw amount
         if withdraw_quantums >= u64::MAX.into() {
             return Err(ContractError::InvalidWithdrawalAmount {
                 coin_type: USDC_COIN_TYPE.to_string(),
                 amount: withdraw_quantums.into(),
             });
+        };
+
+        // validate health after withdrawal
+        if perp_value > asset_value {
+            return Err(ContractError::WithdrawalWouldIncreaseLeverageTooMuch { perp_id });
         };
 
         // make withdrawal message

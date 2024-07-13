@@ -5,11 +5,14 @@ mod tests {
     use cosmwasm_std::{Coin, Uint128};
     use cw_multi_test::Executor;
     use elixir_dydx_integration::{
-        dydx::msg::{OrderSide, OrderTimeInForce}, error::ContractError, execute::{market_make::NewOrder, USDC_COIN_TYPE}, msg::ExecuteMsg
+        dydx::msg::{OrderSide, OrderTimeInForce},
+        error::ContractError,
+        execute::{market_make::NewOrder, USDC_COIN_TYPE},
+        msg::ExecuteMsg,
     };
 
     use crate::utils::{
-        fetch_response_events, instantiate_contract_with_trader_and_vault, mint_native, test_setup
+        fetch_response_events, instantiate_contract_with_trader_and_vault, mint_native, test_setup,
     };
 
     const CLIENT_ID: u32 = 101;
@@ -217,7 +220,7 @@ mod tests {
         let (mut app, code_id, users) = test_setup();
         let owner = users[0].clone();
         let user1 = users[1].clone();
-        let user2 = users[2].clone();        
+        let user2 = users[2].clone();
         let deposit_amount = 10_000_000;
 
         let app_addr = instantiate_contract_with_trader_and_vault(
@@ -332,8 +335,14 @@ mod tests {
             .unwrap();
 
         assert!(app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID));
-        assert!(app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 1));
-        assert!(app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 2));
+        assert!(app
+            .router()
+            .custom
+            .has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 1));
+        assert!(app
+            .router()
+            .custom
+            .has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 2));
     }
 
     #[test]
@@ -444,29 +453,40 @@ mod tests {
             .unwrap();
 
         assert!(app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID));
-        assert!(app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 1));
-        assert!(app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 2));
+        assert!(app
+            .router()
+            .custom
+            .has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 1));
+        assert!(app
+            .router()
+            .custom
+            .has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 2));
 
         let _cancel_response = app
-        .execute_contract(
-            user1.clone(),
-            app_addr.clone(),
-            &ExecuteMsg::MarketMake {
-                subaccount_number: SUBACCOUNT_NUMBER,
-                clob_pair_id: CLOB_PAIR_ID,
-                new_orders: vec![],
-                cancel_client_ids: vec![CLIENT_ID, CLIENT_ID+1],
-                cancel_good_til_block: 0,
-            },
-            &[],
-        )
-        .unwrap();
+            .execute_contract(
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::MarketMake {
+                    subaccount_number: SUBACCOUNT_NUMBER,
+                    clob_pair_id: CLOB_PAIR_ID,
+                    new_orders: vec![],
+                    cancel_client_ids: vec![CLIENT_ID, CLIENT_ID + 1],
+                    cancel_good_til_block: 0,
+                },
+                &[],
+            )
+            .unwrap();
 
         assert!(!app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID));
-        assert!(!app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 1));
-        assert!(app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 2));
+        assert!(!app
+            .router()
+            .custom
+            .has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 1));
+        assert!(app
+            .router()
+            .custom
+            .has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 2));
     }
-
 
     #[test]
     fn placing_orders_fails_if_it_would_increase_leverage_over_1x() {
@@ -501,24 +521,29 @@ mod tests {
             )
             .unwrap();
 
-        let place_response = app
-            .execute_contract(
-                user1.clone(),
-                app_addr.clone(),
-                &ExecuteMsg::MarketMake {
-                    subaccount_number: SUBACCOUNT_NUMBER,
-                    clob_pair_id: CLOB_PAIR_ID,
-                    new_orders: vec![new_order()],
-                    cancel_client_ids: vec![],
-                    cancel_good_til_block: 0,
-                },
-                &[],
-            );
+        let place_response = app.execute_contract(
+            user1.clone(),
+            app_addr.clone(),
+            &ExecuteMsg::MarketMake {
+                subaccount_number: SUBACCOUNT_NUMBER,
+                clob_pair_id: CLOB_PAIR_ID,
+                new_orders: vec![new_order()],
+                cancel_client_ids: vec![],
+                cancel_good_til_block: 0,
+            },
+            &[],
+        );
 
         // fails because order is worth $1 and we only have $1.999999... in deposits -> leverage increases over 1x
         assert!(place_response.is_err());
         if let Some(error) = place_response.unwrap_err().downcast_ref::<ContractError>() {
-            assert_eq!(error, &ContractError::NewOrderWouldIncreaseLeverageTooMuch { perp_id: 0, new_order: new_order() });
+            assert_eq!(
+                error,
+                &ContractError::NewOrderWouldIncreaseLeverageTooMuch {
+                    perp_id: 0,
+                    new_order: new_order()
+                }
+            );
         } else {
             panic!("Expected ContractError::NewOrderWouldIncreaseLeverageTooMuch");
         }
@@ -536,7 +561,7 @@ mod tests {
             )
             .unwrap();
 
-            let _place_response = app
+        let _place_response = app
             .execute_contract(
                 user1.clone(),
                 app_addr.clone(),
@@ -548,7 +573,8 @@ mod tests {
                     cancel_good_til_block: 0,
                 },
                 &[],
-            ).unwrap();
+            )
+            .unwrap();
         assert!(app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID));
     }
 }
