@@ -82,8 +82,9 @@ pub fn test_setup() -> (ElixirTestApp, u64, Vec<Addr>) {
     let user1 = mock_api.addr_make("user1");
     let user2 = mock_api.addr_make("user2");
     let user3 = mock_api.addr_make("user3");
+    let user4 = mock_api.addr_make("user4");
 
-    (app, code_id, vec![owner, user1, user2, user3])
+    (app, code_id, vec![owner, user1, user2, user3, user4])
 }
 
 pub fn instantiate_contract(app: &mut ElixirTestApp, code_id: u64, owner: Addr) -> Addr {
@@ -186,8 +187,9 @@ impl TestDydx {
         }
     }
 
+    #[allow(dead_code)]
     pub fn has_order(&self, subaccount_number: u32, client_order_id: u32) -> bool {
-        let mut order_map = self.mock_orders.borrow();
+        let order_map = self.mock_orders.borrow();
         if let Some(orders) = order_map.get(&subaccount_number) {
             orders.contains(&client_order_id)
         } else {

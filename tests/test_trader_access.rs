@@ -88,7 +88,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "cosmwasm1pgzph9rze2j2xxavx4n7pdhxlkgsq7rak245x0vk7mgh3j4le6gqmlwcfu does not have permission to modify trader"
+        expected = "cosmwasm1pgzph9rze2j2xxavx4n7pdhxlkgsq7rak245x0vk7mgh3j4le6gqmlwcfu is not the trader"
     )]
     fn only_owner_can_set_trader_initially() {
         let (mut app, code_id, users) = test_setup();
@@ -110,7 +110,8 @@ mod tests {
     }
 
     #[test]
-    fn set_trader_is_idempotent() {
+    #[should_panic(expected = "The new trader must be different from the old one")]
+    fn set_trader_fails_if_trader_is_same() {
         let (mut app, code_id, users) = test_setup();
         let owner = users[0].clone();
         let user1 = users[1].clone();
@@ -137,7 +138,7 @@ mod tests {
 
         let add_response2 = app
             .execute_contract(
-                owner.clone(),
+                user1.clone(),
                 app_addr.clone(),
                 &ExecuteMsg::SetTrader {
                     new_trader: user1.to_string(),

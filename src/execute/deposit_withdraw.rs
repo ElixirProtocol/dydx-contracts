@@ -1,7 +1,6 @@
 use cosmwasm_std::{Decimal, DepsMut, Env, Event, MessageInfo, Response, Uint128};
 
 use crate::dydx::msg::DydxMsg;
-use crate::dydx::querier::DydxQuerier;
 use crate::dydx::query::DydxQueryWrapper;
 use crate::error::ContractResult;
 use crate::execute::helpers::{
@@ -294,7 +293,11 @@ pub fn process_withdrawals(
         withdraw_msgs.push(withdraw_message);
 
         // burn LP tokens
-        burn_lp_tokens(&mut deps, &info, perp_id, &env.contract.address, lp_amount)?;
+        let sub_info = MessageInfo {
+            sender: env.contract.address.clone(),
+            funds: vec![],
+        };
+        burn_lp_tokens(&mut deps, &sub_info, perp_id, lp_amount)?;
 
         // pop from vec
         withdrawal_queue.remove(0);

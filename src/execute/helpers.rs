@@ -82,7 +82,6 @@ pub fn burn_lp_tokens(
     deps: &mut DepsMut<DydxQueryWrapper>,
     info: &MessageInfo,
     perp_id: u32,
-    token_owner: &Addr,
     amount: Uint128,
 ) -> ContractResult<()> {
     let mut config = LP_TOKENS
@@ -104,10 +103,10 @@ pub fn burn_lp_tokens(
     config.total_supply -= amount;
     LP_TOKENS.save(deps.storage, perp_id, &config)?;
 
-    // remove amount from owner balance
+    // remove amount from sender balance (always the smart contract)
     LP_BALANCES.update(
         deps.storage,
-        (perp_id, &token_owner),
+        (perp_id, &info.sender),
         |balance: Option<Uint128>| -> StdResult<_> { Ok(balance.unwrap_or_default() - amount) },
     )?;
 
