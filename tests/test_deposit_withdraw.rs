@@ -3,7 +3,8 @@ mod utils;
 #[cfg(test)]
 mod tests {
     use crate::utils::{
-        instantiate_contract_with_trader_and_vault, mint_native, test_setup, TEST_CONTRACT_ADDR,
+        fetch_response_events, instantiate_contract_with_trader_and_vault, mint_native, test_setup,
+        TEST_CONTRACT_ADDR,
     };
     use cosmwasm_std::{Coin, Decimal, Uint128};
     use cw_multi_test::Executor;
@@ -58,7 +59,7 @@ mod tests {
             user1.clone(),
         );
 
-        let _deposit_response = app
+        let deposit_response = app
             .execute_contract(
                 user2.clone(),
                 app_addr.clone(),
@@ -106,6 +107,24 @@ mod tests {
         assert!(vault_resp.perp_usdc_value == Decimal::zero());
         assert!(vault_resp.depositor_lp_tokens == Uint128::new(deposit_amount));
         assert!(vault_resp.outstanding_lp_tokens == Uint128::new(deposit_amount));
+
+        let deposit_events = fetch_response_events(&deposit_response, "new_deposit".to_string());
+        assert!(deposit_events.len() == 1);
+        assert!(deposit_events[0].ty == "wasm-new_deposit");
+        assert!(deposit_events[0].attributes.len() == 6);
+        assert!(deposit_events[0].attributes[1].key == "depositor");
+        assert!(
+            deposit_events[0].attributes[1].value
+                == "cosmwasm1vqjarrly327529599rcc4qhzvhwe34pp5uyy4gylvxe5zupeqx3sg08lap"
+        );
+        assert!(deposit_events[0].attributes[2].key == "perp_id");
+        assert!(deposit_events[0].attributes[2].value == "0");
+        assert!(deposit_events[0].attributes[3].key == "usdc_amount");
+        assert!(deposit_events[0].attributes[3].value == "1000000");
+        assert!(deposit_events[0].attributes[4].key == "minted_lp_tokens");
+        assert!(deposit_events[0].attributes[4].value == "1000000");
+        assert!(deposit_events[0].attributes[5].key == "total_lp_tokens");
+        assert!(deposit_events[0].attributes[5].value == "1000000");
     }
 
     #[test]
@@ -270,7 +289,7 @@ mod tests {
         assert!(user_lp_before.balance == Uint128::new(deposit_amount));
         assert!(contract_lp_before.balance == Uint128::zero());
 
-        let _request_withdraw_response = app
+        let request_withdraw_response = app
             .execute_contract(
                 user2.clone(),
                 app_addr.clone(),
@@ -317,6 +336,25 @@ mod tests {
         // tokens are moved to smart contract temporarily
         assert!(user_lp_after.balance == Uint128::new(deposit_amount - withdraw_amount));
         assert!(contract_lp_after.balance == Uint128::new(withdraw_amount));
+
+        let withdraw_events = fetch_response_events(
+            &request_withdraw_response,
+            "new_withdrawal_request".to_string(),
+        );
+        assert!(withdraw_events.len() == 1);
+        assert!(withdraw_events[0].ty == "wasm-new_withdrawal_request");
+        assert!(withdraw_events[0].attributes.len() == 5);
+        assert!(withdraw_events[0].attributes[1].key == "withdrawer");
+        assert!(
+            withdraw_events[0].attributes[1].value
+                == "cosmwasm1vqjarrly327529599rcc4qhzvhwe34pp5uyy4gylvxe5zupeqx3sg08lap"
+        );
+        assert!(withdraw_events[0].attributes[2].key == "perp_id");
+        assert!(withdraw_events[0].attributes[2].value == "0");
+        assert!(withdraw_events[0].attributes[3].key == "usdc_amount");
+        assert!(withdraw_events[0].attributes[3].value == "1000");
+        assert!(withdraw_events[0].attributes[4].key == "transferred_lp_tokens");
+        assert!(withdraw_events[0].attributes[4].value == "1000");
     }
 
     #[test]
@@ -492,7 +530,7 @@ mod tests {
         assert!(withdrawal_queue[1].recipient_addr == user4);
         assert!(user3_lp.balance == Uint128::new(deposit_amount));
 
-        let _cancel_withdraw_response = app
+        let cancel_withdraw_response = app
             .execute_contract(
                 user2.clone(),
                 app_addr.clone(),
@@ -509,6 +547,23 @@ mod tests {
         let withdrawal_queue = q_resp.withdrawal_queue;
         assert!(withdrawal_queue.len() == 1);
         assert!(withdrawal_queue[0].recipient_addr == user4);
+
+        let cancel_withdraw_events = fetch_response_events(
+            &cancel_withdraw_response,
+            "cancelled_withdrawal_requests".to_string(),
+        );
+        assert!(cancel_withdraw_events.len() == 1);
+        assert!(cancel_withdraw_events[0].ty == "wasm-cancelled_withdrawal_requests");
+        assert!(cancel_withdraw_events[0].attributes.len() == 4);
+        assert!(cancel_withdraw_events[0].attributes[1].key == "withdrawer");
+        assert!(
+            cancel_withdraw_events[0].attributes[1].value
+                == "cosmwasm1vqjarrly327529599rcc4qhzvhwe34pp5uyy4gylvxe5zupeqx3sg08lap"
+        );
+        assert!(cancel_withdraw_events[0].attributes[2].key == "perp_id");
+        assert!(cancel_withdraw_events[0].attributes[2].value == "0");
+        assert!(cancel_withdraw_events[0].attributes[3].key == "restored_lp_tokens");
+        assert!(cancel_withdraw_events[0].attributes[3].value == "1000");
     }
 
     #[test]
@@ -633,7 +688,7 @@ mod tests {
         let withdrawal_queue = q_resp.withdrawal_queue;
         assert!(withdrawal_queue.len() == 3);
 
-        let _process_withdrawal_response = app
+        let process_withdrawal_response = app
             .execute_contract(
                 user1.clone(),
                 app_addr.clone(),
@@ -671,6 +726,43 @@ mod tests {
                 assert!(lp.balance == Uint128::new(deposit_amount - withdraw_amount));
             }
         }
+
+        let processed_withdraw_events = fetch_response_events(
+            &process_withdrawal_response,
+            "processed_withdrawal".to_string(),
+        );
+        assert!(processed_withdraw_events.len() == 3);
+        assert!(processed_withdraw_events[0].ty == "wasm-processed_withdrawal");
+        assert!(processed_withdraw_events[0].attributes.len() == 5);
+        assert!(processed_withdraw_events[0].attributes[1].key == "recipient");
+        assert!(processed_withdraw_events[0].attributes[1].value == "cosmwasm1vqjarrly327529599rcc4qhzvhwe34pp5uyy4gylvxe5zupeqx3sg08lap");
+        assert!(processed_withdraw_events[0].attributes[2].key == "perp_id");
+        assert!(processed_withdraw_events[0].attributes[2].value == "0");
+        assert!(processed_withdraw_events[0].attributes[3].key == "withdrawn_usdc");
+        assert!(processed_withdraw_events[0].attributes[3].value == "1000");
+        assert!(processed_withdraw_events[0].attributes[4].key == "burnt_lp_tokens");
+        assert!(processed_withdraw_events[0].attributes[4].value == "1000");
+
+        assert!(processed_withdraw_events[1].attributes.len() == 5);
+        assert!(processed_withdraw_events[1].attributes[1].key == "recipient");
+        assert!(processed_withdraw_events[1].attributes[1].value == "cosmwasm1tps04uptd0rzy2a94jjjx4s0pcmyenvtv7lwfph730muq82f9n9s2w0guk");
+        assert!(processed_withdraw_events[1].attributes[2].key == "perp_id");
+        assert!(processed_withdraw_events[1].attributes[2].value == "0");
+        assert!(processed_withdraw_events[1].attributes[3].key == "withdrawn_usdc");
+        assert!(processed_withdraw_events[1].attributes[3].value == "999");
+        assert!(processed_withdraw_events[1].attributes[4].key == "burnt_lp_tokens");
+        assert!(processed_withdraw_events[1].attributes[4].value == "1000");
+
+        assert!(processed_withdraw_events[2].attributes.len() == 5);
+        assert!(processed_withdraw_events[2].attributes[1].key == "recipient");
+        assert!(processed_withdraw_events[2].attributes[1].value == "cosmwasm12f57lxqdu3upnw3azs6q73n9yckyr6fnmjfvrgna6hgpkpr6eq8qf0fk2p");
+        assert!(processed_withdraw_events[2].attributes[2].key == "perp_id");
+        assert!(processed_withdraw_events[2].attributes[2].value == "0");
+        assert!(processed_withdraw_events[2].attributes[3].key == "withdrawn_usdc");
+        assert!(processed_withdraw_events[2].attributes[3].value == "999");
+        assert!(processed_withdraw_events[2].attributes[4].key == "burnt_lp_tokens");
+        assert!(processed_withdraw_events[2].attributes[4].value == "1000");
+
     }
 
     #[test]

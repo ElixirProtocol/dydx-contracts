@@ -91,14 +91,15 @@ pub fn deposit_into_vault(
         quantums: amount.u128() as u64,
     };
 
-    // TODO: more events, less debugging
-
-    let event = Event::new("token_mint_math")
-        .add_attribute("subaccount_value", subaccount_value.to_string())
-        .add_attribute("deposit_value", deposit_value.to_string())
-        .add_attribute("share_value_fraction", share_value_fraction.to_string())
-        .add_attribute("outstanding_lp_tokens", outstanding_lp_tokens.to_string())
-        .add_attribute("new_tokens", new_tokens.to_string());
+    let event = Event::new("new_deposit")
+        .add_attribute("depositor", info.sender.to_string())
+        .add_attribute("perp_id", perp_id.to_string())
+        .add_attribute("usdc_amount", amount.to_string())
+        .add_attribute("minted_lp_tokens", new_tokens.to_string())
+        .add_attribute(
+            "total_lp_tokens",
+            (lp_token_info.total_supply + new_tokens).to_string(),
+        );
 
     Ok(Response::new()
         .add_attribute("method", "deposit_into_vault")
@@ -178,9 +179,15 @@ pub fn request_withdrawal(
         lp_token_amount,
     )?;
 
-    Ok(
-        Response::new().add_attribute("method", "request_withdrawal"), // .add_event(event)
-    )
+    let event = Event::new("new_withdrawal_request")
+        .add_attribute("withdrawer", info.sender.to_string())
+        .add_attribute("perp_id", perp_id.to_string())
+        .add_attribute("usdc_amount", usdc_amount.to_string())
+        .add_attribute("transferred_lp_tokens", lp_token_amount.to_string());
+
+    Ok(Response::new()
+        .add_event(event)
+        .add_attribute("method", "request_withdrawal"))
 }
 
 /// Cancels all user withdrawal requests from the LP vault.
@@ -223,9 +230,14 @@ pub fn cancel_withdrawal_requests(
         )?;
     }
 
-    Ok(
-        Response::new().add_attribute("method", "cancel_withdrawal_requests"), // .add_event(event)
-    )
+    let event = Event::new("cancelled_withdrawal_requests")
+        .add_attribute("withdrawer", info.sender.to_string())
+        .add_attribute("perp_id", perp_id.to_string())
+        .add_attribute("restored_lp_tokens", restored_lp_tokens.to_string());
+
+    Ok(Response::new()
+        .add_event(event)
+        .add_attribute("method", "cancel_withdrawal_requests"))
 }
 
 /// Processes user withdrawal requests as long as the dYdX subaccount allows it.
@@ -264,6 +276,7 @@ pub fn process_withdrawals(
         .ok_or(ContractError::MissingWithdrawalQueue { perp_id })?;
 
     let mut withdraw_msgs = vec![];
+    let mut withdraw_events = vec![];
     while max_num_withdrawals > 0 && withdrawal_queue.len() > 0 {
         let lp_amount = withdrawal_queue[0].lp_tokens;
         let lp_amount_decimal =
@@ -302,6 +315,13 @@ pub fn process_withdrawals(
         };
         withdraw_msgs.push(withdraw_message);
 
+        let event = Event::new("processed_withdrawal")
+            .add_attribute("recipient", recipient.to_string())
+            .add_attribute("perp_id", perp_id.to_string())
+            .add_attribute("withdrawn_usdc", withdraw_quantums.to_string())
+            .add_attribute("burnt_lp_tokens", lp_amount.to_string());
+        withdraw_events.push(event);
+
         // burn LP tokens
         let sub_info = MessageInfo {
             sender: env.contract.address.clone(),
@@ -316,9 +336,8 @@ pub fn process_withdrawals(
     }
     WITHDRAWAL_QUEUES.save(deps.storage, perp_id, &withdrawal_queue)?;
 
-    Ok(
-        Response::new()
-            .add_attribute("method", "process_withdrawals")
-            .add_messages(withdraw_msgs), // .add_event(event)
-    )
+    Ok(Response::new()
+        .add_attribute("method", "process_withdrawals")
+        .add_events(withdraw_events)
+        .add_messages(withdraw_msgs))
 }
