@@ -193,7 +193,10 @@ mod tests {
 
     #[test]
     fn example_serialize_process_withdrawals() {
-        let msg = ExecuteMsg::ProcessWithdrawals { perp_id: 0, max_num_withdrawals: 1 };
+        let msg = ExecuteMsg::ProcessWithdrawals {
+            perp_id: 0,
+            max_num_withdrawals: 1,
+        };
 
         let serialized_msg = serde_json::to_string(&msg).unwrap();
         println!("{}", serialized_msg);
