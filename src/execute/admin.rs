@@ -26,7 +26,7 @@ pub fn set_trader(
         return Err(ContractError::NewTraderMustNotBeCurrentTrader);
     }
 
-    let event = Event::new("trader_set")
+    let event = Event::new("new_trader")
         .add_attribute("old", old_trader_addr.to_string())
         .add_attribute("new", new_trader);
 
@@ -72,9 +72,14 @@ pub fn create_vault(
     };
     LP_TOKENS.save(deps.storage, perp_id, &data)?;
 
-    // TODO: more events
+    let event = Event::new("new_vault")
+        .add_attribute("perp_id", perp_id.to_string())
+        .add_attribute("lp_name", format!("Elixir LP Token: dYdX-{perp_id}"))
+        .add_attribute("lp_symbol", format!("ELXR-LP-dYdX-{perp_id}"));
 
-    Ok(Response::new().add_attribute("method", "create_vault"))
+    Ok(Response::new()
+        .add_event(event)
+        .add_attribute("method", "create_vault"))
 }
 
 /// Changes the vault fee. For now this is method is unused and will throw an error if called.
