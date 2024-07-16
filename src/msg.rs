@@ -203,6 +203,14 @@ mod tests {
     }
 
     #[test]
+    fn example_serialize_cancel_withdrawals() {
+        let msg = ExecuteMsg::CancelWithdrawalRequests { perp_id: 0 };
+
+        let serialized_msg = serde_json::to_string(&msg).unwrap();
+        println!("{}", serialized_msg);
+    }
+
+    #[test]
     fn example_serialize_trader() {
         let msg = QueryMsg::Trader {};
         let serialized_msg = serde_json::to_string(&msg).unwrap();

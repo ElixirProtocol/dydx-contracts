@@ -83,32 +83,6 @@ mod tests {
             .unwrap();
 
         assert!(app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID))
-
-        // Event::new("placed_order")
-        // .add_attribute("owner", self.order_id.subaccount_id.owner.clone())
-        // .add_attribute("subaccount_number", self.order_id.subaccount_id.number.to_string())
-        // .add_attribute("side", self.side.to_string())
-        // .add_attribute("quantums", self.quantums.to_string())
-        // .add_attribute("subticks", self.subticks.to_string())
-        // .add_attribute("time_in_force", self.time_in_force.to_string())
-        // .add_attribute("reduce_only", self.reduce_only.to_string())
-        // .add_attribute("client_metadata", self.client_metadata.to_string())
-        // .add_attribute("condition_type", self.condition_type.to_string())
-        // .add_attribute("conditional_order_trigger_subticks", self.conditional_order_trigger_subticks.to_string())
-
-        // let trader_added_events = fetch_response_events(&add_response, "trader_added".to_string());
-        // assert!(trader_added_events.len() == 1);
-        // assert!(trader_added_events[0].ty == "wasm-trader_added");
-
-        // let method_attributes = fetch_attributes(&add_response, "method".to_string());
-        // assert!(method_attributes.len() == 1);
-        // assert!(method_attributes[0].key == "method");
-        // assert!(method_attributes[0].value == "add_traders");
-
-        // let count_attributes = fetch_attributes(&add_response, "added_count".to_string());
-        // assert!(count_attributes.len() == 1);
-        // assert!(count_attributes[0].key == "added_count");
-        // assert!(count_attributes[0].value == "1");
     }
 
     #[test]
@@ -576,5 +550,139 @@ mod tests {
             )
             .unwrap();
         assert!(app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID));
+    }
+
+    #[test]
+    fn trader_can_place_and_cancel_in_one_msg() {
+        let (mut app, code_id, users) = test_setup();
+        let owner = users[0].clone();
+        let user1 = users[1].clone();
+        let deposit_amount = 10_000_000;
+
+        let app_addr = instantiate_contract_with_trader_and_vault(
+            &mut app,
+            code_id,
+            owner.clone(),
+            user1.clone(),
+        );
+
+        mint_native(
+            &mut app,
+            user1.to_string(),
+            USDC_COIN_TYPE.to_string(),
+            deposit_amount,
+        );
+
+        let _deposit_response = app
+            .execute_contract(
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::DepositIntoVault { perp_id: 0 },
+                &[Coin {
+                    denom: USDC_COIN_TYPE.to_string(),
+                    amount: Uint128::new(deposit_amount),
+                }],
+            )
+            .unwrap();
+
+        let mut orders1 = vec![new_order(), new_order(), new_order(), new_order()];
+        let mut orders2 = vec![new_order()];
+        orders1[1].client_id += 1;
+        orders1[2].client_id += 2;
+        orders2[0].client_id += 3;
+
+        let _place_response = app
+            .execute_contract(
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::MarketMake {
+                    subaccount_number: SUBACCOUNT_NUMBER,
+                    clob_pair_id: CLOB_PAIR_ID,
+                    new_orders: vec![new_order()],
+                    cancel_client_ids: vec![],
+                    cancel_good_til_block: 0,
+                },
+                &[],
+            )
+            .unwrap();
+
+        assert!(app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID));
+
+        let place2_response = app
+            .execute_contract(
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::MarketMake {
+                    subaccount_number: SUBACCOUNT_NUMBER,
+                    clob_pair_id: CLOB_PAIR_ID,
+                    new_orders: orders2,
+                    cancel_client_ids: vec![CLIENT_ID, CLIENT_ID + 1, CLIENT_ID + 2],
+                    cancel_good_til_block: 0,
+                },
+                &[],
+            )
+            .unwrap();
+
+        assert!(!app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID));
+        assert!(!app
+            .router()
+            .custom
+            .has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 1));
+        assert!(!app
+            .router()
+            .custom
+            .has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 2));
+        assert!(app
+            .router()
+            .custom
+            .has_order(SUBACCOUNT_NUMBER, CLIENT_ID + 3));
+
+        let place_events = fetch_response_events(&place2_response, "placed_order".to_string());
+        assert!(place_events.len() == 1);
+        assert!(place_events[0].ty == "wasm-placed_order");
+        assert!(place_events[0].attributes.len() == 7);
+        assert!(place_events[0].attributes[1].key == "perp_id");
+        assert!(place_events[0].attributes[1].value == "0");
+        assert!(place_events[0].attributes[2].key == "client_id");
+        assert!(place_events[0].attributes[2].value == "104");
+        assert!(place_events[0].attributes[3].key == "clob_pair_id");
+        assert!(place_events[0].attributes[3].value == "0");
+        assert!(place_events[0].attributes[4].key == "side");
+        assert!(place_events[0].attributes[4].value == "Buy");
+        assert!(place_events[0].attributes[5].key == "quantums");
+        assert!(place_events[0].attributes[5].value == "1000000");
+        assert!(place_events[0].attributes[6].key == "subticks");
+        assert!(place_events[0].attributes[6].value == "100000");
+
+        let cancelled_events =
+            fetch_response_events(&place2_response, "cancelled_order".to_string());
+        assert!(cancelled_events.len() == 3);
+        assert!(cancelled_events[0].attributes.len() == 5);
+        assert!(cancelled_events[0].attributes[1].key == "perp_id");
+        assert!(cancelled_events[0].attributes[1].value == "0");
+        assert!(cancelled_events[0].attributes[2].key == "client_id");
+        assert!(cancelled_events[0].attributes[2].value == "101");
+        assert!(cancelled_events[0].attributes[3].key == "clob_pair_id");
+        assert!(cancelled_events[0].attributes[3].value == "0");
+        assert!(cancelled_events[0].attributes[4].key == "cancel_good_til_block");
+        assert!(cancelled_events[0].attributes[4].value == "0");
+
+        assert!(cancelled_events[1].attributes[1].key == "perp_id");
+        assert!(cancelled_events[1].attributes[1].value == "0");
+        assert!(cancelled_events[1].attributes[2].key == "client_id");
+        assert!(cancelled_events[1].attributes[2].value == "102");
+        assert!(cancelled_events[1].attributes[3].key == "clob_pair_id");
+        assert!(cancelled_events[1].attributes[3].value == "0");
+        assert!(cancelled_events[1].attributes[4].key == "cancel_good_til_block");
+        assert!(cancelled_events[1].attributes[4].value == "0");
+
+        assert!(cancelled_events[2].attributes[1].key == "perp_id");
+        assert!(cancelled_events[2].attributes[1].value == "0");
+        assert!(cancelled_events[2].attributes[2].key == "client_id");
+        assert!(cancelled_events[2].attributes[2].value == "103");
+        assert!(cancelled_events[2].attributes[3].key == "clob_pair_id");
+        assert!(cancelled_events[2].attributes[3].value == "0");
+        assert!(cancelled_events[2].attributes[4].key == "cancel_good_til_block");
+        assert!(cancelled_events[2].attributes[4].value == "0");
     }
 }

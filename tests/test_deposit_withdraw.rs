@@ -735,7 +735,10 @@ mod tests {
         assert!(processed_withdraw_events[0].ty == "wasm-processed_withdrawal");
         assert!(processed_withdraw_events[0].attributes.len() == 5);
         assert!(processed_withdraw_events[0].attributes[1].key == "recipient");
-        assert!(processed_withdraw_events[0].attributes[1].value == "cosmwasm1vqjarrly327529599rcc4qhzvhwe34pp5uyy4gylvxe5zupeqx3sg08lap");
+        assert!(
+            processed_withdraw_events[0].attributes[1].value
+                == "cosmwasm1vqjarrly327529599rcc4qhzvhwe34pp5uyy4gylvxe5zupeqx3sg08lap"
+        );
         assert!(processed_withdraw_events[0].attributes[2].key == "perp_id");
         assert!(processed_withdraw_events[0].attributes[2].value == "0");
         assert!(processed_withdraw_events[0].attributes[3].key == "withdrawn_usdc");
@@ -745,7 +748,10 @@ mod tests {
 
         assert!(processed_withdraw_events[1].attributes.len() == 5);
         assert!(processed_withdraw_events[1].attributes[1].key == "recipient");
-        assert!(processed_withdraw_events[1].attributes[1].value == "cosmwasm1tps04uptd0rzy2a94jjjx4s0pcmyenvtv7lwfph730muq82f9n9s2w0guk");
+        assert!(
+            processed_withdraw_events[1].attributes[1].value
+                == "cosmwasm1tps04uptd0rzy2a94jjjx4s0pcmyenvtv7lwfph730muq82f9n9s2w0guk"
+        );
         assert!(processed_withdraw_events[1].attributes[2].key == "perp_id");
         assert!(processed_withdraw_events[1].attributes[2].value == "0");
         assert!(processed_withdraw_events[1].attributes[3].key == "withdrawn_usdc");
@@ -755,14 +761,16 @@ mod tests {
 
         assert!(processed_withdraw_events[2].attributes.len() == 5);
         assert!(processed_withdraw_events[2].attributes[1].key == "recipient");
-        assert!(processed_withdraw_events[2].attributes[1].value == "cosmwasm12f57lxqdu3upnw3azs6q73n9yckyr6fnmjfvrgna6hgpkpr6eq8qf0fk2p");
+        assert!(
+            processed_withdraw_events[2].attributes[1].value
+                == "cosmwasm12f57lxqdu3upnw3azs6q73n9yckyr6fnmjfvrgna6hgpkpr6eq8qf0fk2p"
+        );
         assert!(processed_withdraw_events[2].attributes[2].key == "perp_id");
         assert!(processed_withdraw_events[2].attributes[2].value == "0");
         assert!(processed_withdraw_events[2].attributes[3].key == "withdrawn_usdc");
         assert!(processed_withdraw_events[2].attributes[3].value == "999");
         assert!(processed_withdraw_events[2].attributes[4].key == "burnt_lp_tokens");
         assert!(processed_withdraw_events[2].attributes[4].value == "1000");
-
     }
 
     #[test]

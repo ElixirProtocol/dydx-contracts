@@ -69,10 +69,9 @@ mod tests {
 
         assert!(traders_resp.trader == user1);
 
-        let trader_added_events = fetch_response_events(&add_response, "trader_set".to_string());
+        let trader_added_events = fetch_response_events(&add_response, "new_trader".to_string());
         assert!(trader_added_events.len() == 1);
-        println!("{:?}", trader_added_events);
-        assert!(trader_added_events[0].ty == "wasm-trader_set");
+        assert!(trader_added_events[0].ty == "wasm-new_trader");
 
         let method_attributes = fetch_attributes(&add_response, "method".to_string());
         assert!(method_attributes.len() == 1);

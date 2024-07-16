@@ -1,7 +1,7 @@
 use core::fmt;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Decimal, DepsMut, Env, MessageInfo, Response};
+use cosmwasm_std::{Decimal, DepsMut, Env, Event, MessageInfo, Response};
 
 use super::USDC_DENOM;
 use crate::dydx::msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce};
@@ -23,6 +23,18 @@ pub struct NewOrder {
     pub reduce_only: bool,
     pub client_metadata: u32,
     pub conditional_order_trigger_subticks: u64,
+}
+
+impl NewOrder {
+    pub fn get_place_event(&self, perp_id: u32, clob_pair_id: u32) -> Event {
+        Event::new("placed_order")
+            .add_attribute("perp_id", perp_id.to_string())
+            .add_attribute("client_id", self.client_id.to_string())
+            .add_attribute("clob_pair_id", clob_pair_id.to_string())
+            .add_attribute("side", self.side.to_string())
+            .add_attribute("quantums", self.quantums.to_string())
+            .add_attribute("subticks", self.subticks.to_string())
+    }
 }
 
 impl fmt::Display for NewOrder {
@@ -89,7 +101,8 @@ pub fn market_make(
         return Err(ContractError::VaultNotInitialized { perp_id });
     }
 
-    let mut response = Response::new().add_attribute("method", "market_make");
+    let mut messages = vec![];
+    let mut events = vec![];
 
     // first add batch cancel
     if cancel_client_ids.len() > 0 {
@@ -102,8 +115,13 @@ pub fn market_make(
                 clob_pair_id,
                 good_til_block_time: cancel_good_til_block,
             };
-            response = response // .add_event(event)
-                .add_message(cancel_msg);
+            let cancel_event = Event::new("cancelled_order")
+                .add_attribute("perp_id", subaccount_number.to_string())
+                .add_attribute("client_id", cancel_client_id.to_string())
+                .add_attribute("clob_pair_id", clob_pair_id.to_string())
+                .add_attribute("cancel_good_til_block", cancel_good_til_block.to_string());
+            messages.push(cancel_msg);
+            events.push(cancel_event);
         }
     }
 
@@ -129,13 +147,13 @@ pub fn market_make(
             asset_value -= order_value;
             perp_value += order_value;
 
-            // let event = order.get_place_event();
+            let place_event = new_order.get_place_event(subaccount_number, clob_pair_id);
             let place_msg = DydxMsg::PlaceOrderV1 {
                 subaccount_number,
                 client_id: new_order.client_id,
                 order_flags: LONG_TERM_ORDER_FLAGS,
                 clob_pair_id,
-                side: new_order.side,
+                side: new_order.side.clone(),
                 quantums: new_order.quantums,
                 subticks: new_order.subticks,
                 good_til_block_time: new_order.good_til_block_time,
@@ -145,8 +163,8 @@ pub fn market_make(
                 condition_type: OrderConditionType::Unspecified,
                 conditional_order_trigger_subticks: new_order.conditional_order_trigger_subticks,
             };
-            response = response // .add_event(event)
-                .add_message(place_msg);
+            messages.push(place_msg);
+            events.push(place_event);
         }
     }
 
@@ -155,5 +173,8 @@ pub fn market_make(
         return Err(ContractError::CanOnlyPlaceThreeOrdersPerSide {});
     }
 
-    Ok(response)
+    Ok(Response::new()
+        .add_attribute("method", "market_make")
+        .add_events(events)
+        .add_messages(messages))
 }
