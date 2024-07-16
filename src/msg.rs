@@ -129,7 +129,7 @@ mod tests {
             msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce},
             proto_structs::SubaccountId,
         },
-        msg::QueryMsg,
+        msg::{ExecuteMsg, QueryMsg},
     };
 
     #[test]
@@ -175,6 +175,25 @@ mod tests {
             asset_id: 0,
             quantums: 0,
         };
+
+        let serialized_msg = serde_json::to_string(&msg).unwrap();
+        println!("{}", serialized_msg);
+    }
+
+    #[test]
+    fn example_serialize_request_withdrawal() {
+        let msg = ExecuteMsg::RequestWithdrawal {
+            perp_id: 0,
+            usdc_amount: 100,
+        };
+
+        let serialized_msg = serde_json::to_string(&msg).unwrap();
+        println!("{}", serialized_msg);
+    }
+
+    #[test]
+    fn example_serialize_process_withdrawals() {
+        let msg = ExecuteMsg::ProcessWithdrawals { perp_id: 0, max_num_withdrawals: 1 };
 
         let serialized_msg = serde_json::to_string(&msg).unwrap();
         println!("{}", serialized_msg);
