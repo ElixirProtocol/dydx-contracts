@@ -21,11 +21,14 @@ deposit:
  process withdrawal:
     wasmd tx wasm execute dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j '{"process_withdrawals":{"perp_id":0,"max_num_withdrawals":1}}' --from alice --gas-prices 25000000000adv4tnt --gas auto --gas-adjustment 1.5 --chain-id localdydxprotocol
 
+cancel withdrawals: 
+    wasmd tx wasm execute dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j '{"cancel_withdrawal_requests":{"perp_id":0}}' --from alice --gas-prices 25000000000adv4tnt --gas auto --gas-adjustment 1.5 --chain-id localdydxprotocol
+
 place order: 
- wasmd tx wasm execute dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j '{"place_order":{"subaccount_number":0,"client_id":101,"order_flags":64,"clob_pair_id":0,"side":1,"quantums":1000000,"subticks":100000,"good_til_block_time":1720791702,"time_in_force":0,"reduce_only":false,"client_metadata":0,"conditional_order_trigger_subticks":0}}' --from alice --gas-prices 25000000000adv4tnt --gas auto --gas-adjustment 1.5 --chain-id localdydxprotocol
+ wasmd tx wasm execute dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j '{"market_make":{"subaccount_number":0,"clob_pair_id":0,"new_orders":[{"client_id":101,"side":1,"quantums":1000000,"subticks":100000,"good_til_block_time":1720791702,"time_in_force":0,"reduce_only":false,"client_metadata":0,"conditional_order_trigger_subticks":0}],"cancel_client_ids":[],"cancel_good_til_block":0}}' --from alice --gas-prices 25000000000adv4tnt --gas auto --gas-adjustment 1.5 --chain-id localdydxprotocol
 
 cancel order: 
- wasmd tx wasm execute dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j '{"cancel_order":{"subaccount_number":0,"client_id":101,"order_flags":64,"clob_pair_id":0,"good_til_block_time":1720791702}}' --from alice --gas-prices 25000000000adv4tnt --gas auto --gas-adjustment 1.5 --chain-id localdydxprotocol
+ wasmd tx wasm execute dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j '{"market_make":{"subaccount_number":0,"clob_pair_id":0,"new_orders":[],"cancel_client_ids":[101],"cancel_good_til_block":1721231980}}' --from alice --gas-prices 25000000000adv4tnt --gas auto --gas-adjustment 1.5 --chain-id localdydxprotocol
 
 batch cancel: 
   wasmd tx wasm execute dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j '{"batch_cancel":{"subaccount_number":0,"order_batches":[{"clob_pair_id":0,"client_ids":[101,102]}],"good_til_block":123}}' --from alice --gas-prices 25000000000adv4tnt --gas auto --gas-adjustment 1.5 --chain-id localdydxprotocol
