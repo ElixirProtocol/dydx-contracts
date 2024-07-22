@@ -13,8 +13,6 @@ pub enum ContractError {
     InvalidOwnerDuringInstantiation { owner: Addr },
     #[error("{sender} is not the trader")]
     SenderIsNotTrader { sender: Addr },
-    #[error("The new trader must be different from the old one")]
-    NewTraderMustNotBeCurrentTrader,
     #[error("An invalid address was provided: {addr}")]
     InvalidAddress { addr: String },
     #[error("{sender} does not have permission to create vaults")]

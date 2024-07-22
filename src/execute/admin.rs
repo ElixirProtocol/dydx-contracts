@@ -21,11 +21,6 @@ pub fn set_trader(
     verify_trader(&info.sender, &state.trader)?;
     let new_trader_addr = validate_addr_string(&deps, new_trader.clone())?;
 
-    // new trader must not be old trader
-    if new_trader_addr == info.sender {
-        return Err(ContractError::NewTraderMustNotBeCurrentTrader);
-    }
-
     let event = Event::new("new_trader")
         .add_attribute("old", old_trader_addr.to_string())
         .add_attribute("new", new_trader);
