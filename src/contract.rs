@@ -44,6 +44,9 @@ pub fn execute(
         ExecuteMsg::SetTrader { new_trader } => {
             crate::execute::admin::set_trader(deps, info, new_trader).map_err(Into::into)
         }
+        // ExecuteMsg::UpdatePermissionedTrader { new_trader } => {
+        //     crate::execute::admin::update_permissioned_trader(deps, info, new_trader).map_err(Into::into)
+        // }
         ExecuteMsg::CreateVault { perp_id } => {
             crate::execute::admin::create_vault(deps, env, info, perp_id).map_err(Into::into)
         }

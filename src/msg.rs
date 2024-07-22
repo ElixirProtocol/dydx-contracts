@@ -38,6 +38,9 @@ pub enum ExecuteMsg {
     SetTrader {
         new_trader: String,
     },
+    // UpdatePermissionedTrader {
+    //     new_trader: String,
+    // },
     CreateVault {
         perp_id: u32,
     },

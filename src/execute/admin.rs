@@ -21,11 +21,6 @@ pub fn set_trader(
     verify_trader(&info.sender, &state.trader)?;
     let new_trader_addr = validate_addr_string(&deps, new_trader.clone())?;
 
-    // new trader must not be old trader
-    if new_trader_addr == info.sender {
-        return Err(ContractError::NewTraderMustNotBeCurrentTrader);
-    }
-
     let event = Event::new("new_trader")
         .add_attribute("old", old_trader_addr.to_string())
         .add_attribute("new", new_trader);
@@ -39,6 +34,35 @@ pub fn set_trader(
 
     Ok(resp)
 }
+
+// /// Updates the permissioned trader in dYdX by taking advantage of the 
+// /// "permissioned keys" feature. At present this is just a stub because the feature
+// /// has not yet been implemented
+// pub fn update_permissioned_trader(
+//     deps: DepsMut<DydxQueryWrapper>,
+//     info: MessageInfo,
+//     new_trader: String,
+// ) -> ContractResult<Response<DydxMsg>> {
+//     let mut state = STATE.load(deps.storage)?;
+
+//     verify_trader(&info.sender, &state.trader)?;
+//     let new_trader_addr = validate_addr_string(&deps, new_trader.clone())?;
+
+//     let event = Event::new("update_permissioned_trader")
+//         .add_attribute("new", new_trader);
+
+//     let permissioned_key_msg = SetPermissionedKeyTraderV1 {
+//         subaccount_number: perp_id,
+//         permissioned_trader_addr: &state.trader
+//     };
+
+//     let resp = Response::new()
+//         .add_event(event)
+//         .add_message(permissioned_key_msg)
+//         .add_attribute("method", "update_permissioned_trader");
+
+//     Ok(resp)
+// }
 
 /// Creates a vault and the associated dYdX subaccount required for trading.
 pub fn create_vault(
@@ -77,9 +101,16 @@ pub fn create_vault(
         .add_attribute("lp_name", format!("Elixir LP Token: dYdX-{perp_id}"))
         .add_attribute("lp_symbol", format!("ELXR-LP-dYdX-{perp_id}"));
 
+    // let permissioned_key_msg = SetPermissionedKeyTraderV1 {
+    //     subaccount_number: perp_id,
+    //     permissioned_trader_addr: &state.trader
+    // };
+
     Ok(Response::new()
         .add_event(event)
-        .add_attribute("method", "create_vault"))
+        .add_attribute("method", "create_vault")
+        // .add_message(permissioned_key_msg)
+    )
 }
 
 /// Changes the vault fee. For now this is method is unused and will throw an error if called.

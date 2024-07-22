@@ -144,6 +144,10 @@ pub enum DydxMsg {
         clob_pair_id: u32,
         good_til_block_time: u32,
     },
+    // SetPermissionedKeyTraderV1 {
+        // subaccount_number: u32,
+        // permissioned_trader_addr: String
+    // }
 }
 
 impl From<DydxMsg> for CosmosMsg<DydxMsg> {
