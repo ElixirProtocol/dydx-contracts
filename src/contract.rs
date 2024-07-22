@@ -30,6 +30,7 @@ pub fn instantiate(
         contract: env.contract.address,
     };
     STATE.save(deps.storage, &state)?;
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::new().add_attribute("method", "instantiate"))
 }
@@ -135,17 +136,16 @@ pub fn migrate(
     }
     // note: better to do proper semver compare, but string compare *usually* works
     if ver.version >= CONTRACT_VERSION.to_string() {
-        return Err(StdError::generic_err("Cannot upgrade from a newer version").into());
+        return Err(StdError::generic_err(format!("Cannot upgrade from a newer version {} -> {}", ver.version, CONTRACT_VERSION)).into());
     }
     // set the new version
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    // see https://medium.com/cosmwasm/cosmwasm-for-ctos-ii-advanced-usage-ee04ce95d1d0 for migration details
+    // See https://medium.com/cosmwasm/cosmwasm-for-ctos-ii-advanced-usage-ee04ce95d1d0 for migration details
     // and note that migrate is called on the new version of the code
-    // the smart contract should:
-    // 1. copy existing vaults
-    // 2. copy LP token state
-    // 3. copy withdrawal queues
+    // As long as the state in state.rs is the same between the new and old contract, it will be copied over automatically.
+    // Otherwise, see https://github.com/CosmWasm/cosmwasm/blob/a0cf296c43aa092b81457d96a9c6bc2ab223f6d3/contracts/hackatom/src/contract.rs#L37-L48
+    // for an example of migration where state does not match
 
     // since the smart contract address is the same, migration of funds in dYdX subaccounts is not necessary
 

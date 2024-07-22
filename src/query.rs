@@ -11,7 +11,7 @@ use crate::{
     },
     state::{LP_BALANCES, LP_TOKENS, STATE, VAULTS_BY_PERP_ID, WITHDRAWAL_QUEUES},
 };
-use cosmwasm_std::{Decimal, Deps, Env, Order, StdResult};
+use cosmwasm_std::{Decimal, Deps, Order, StdResult};
 use num_traits::ToPrimitive;
 
 pub fn perp_clob_details(
@@ -198,13 +198,3 @@ pub fn query_validated_dydx_position(
 
     Ok(validated_position)
 }
-
-// /// Queries the smart contract owned dYdX subaccountd for free collateral
-// /// Throws an error if the subaccount has any unexpected assets.
-// pub fn query_validated_dydx_free_collateral(
-//     _querier: &DydxQuerier,
-//     _env: &Env,
-//     _perp_id: u32,
-// ) -> ContractResult<u64> {
-//     Ok(0)
-// }

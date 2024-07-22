@@ -52,28 +52,10 @@ query dydx vault state:
 
 
 
-    dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-query dydx deposit: 
-    wasmd query wasm contract-state smart dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j '{"dydx_subaccount": {"owner": "dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j", "number": 0}}'
-
-    wasmd query wasm contract-state smart dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j '{"dydx_subaccount": {"owner": "dydx199tqg4wdlnu4qjlxchpd7seg454937hjrknju4", "number": 0}}'
-    wasmd query wasm contract-state smart dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j '{"dydx_subaccount": {"owner": "dydx10fx7sy6ywd5senxae9dwytf8jxek3t2gcen2vs", "number": 0}}'
-    wasmd query wasm contract-state smart dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j '{"dydx_subaccount": {"owner": "dydx1fjg6zp6vv8t9wvy4lps03r5l4g7tkjw9wvmh70", "number": 0}}'
-    wasmd query wasm contract-state smart dydx14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2de90j '{"dydx_subaccount": {"owner": "dydx1wau5mja7j7zdavtfq9lu7ejef05hm6ffenlcsn", "number": 0}}'
+migration: 
+    wasmd tx wasm migrate <old-contract-address> "<new-code-id>" "{}" --from alice --gas-prices 25000000000adv4tnt --gas auto --gas-adjustment 1.5 --chain-id localdydxprotocol
