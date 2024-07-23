@@ -64,13 +64,13 @@ pub enum ExecuteMsg {
         perp_id: u32,
         max_num_withdrawals: u32,
     },
-    MarketMake {
-        subaccount_number: u32,
-        clob_pair_id: u32,
-        new_orders: Vec<NewOrder>,
-        cancel_client_ids: Vec<u32>,
-        cancel_good_til_block: u32,
-    },
+    // MarketMake {
+    //     subaccount_number: u32,
+    //     clob_pair_id: u32,
+    //     new_orders: Vec<NewOrder>,
+    //     cancel_client_ids: Vec<u32>,
+    //     cancel_good_til_block: u32,
+    // },
 }
 
 #[cw_serde]
@@ -200,44 +200,6 @@ mod tests {
         let msg = ExecuteMsg::ProcessWithdrawals {
             perp_id: 0,
             max_num_withdrawals: 1,
-        };
-
-        let serialized_msg = serde_json::to_string(&msg).unwrap();
-        println!("{}", serialized_msg);
-    }
-
-    #[test]
-    fn example_serialize_market_make_place_order() {
-        let msg = ExecuteMsg::MarketMake {
-            subaccount_number: 0,
-            clob_pair_id: 0,
-            new_orders: vec![NewOrder {
-                client_id: 101,
-                side: OrderSide::Buy,
-                quantums: 1000000,
-                subticks: 100000,
-                good_til_block_time: 1720791702,
-                time_in_force: OrderTimeInForce::Unspecified,
-                reduce_only: false,
-                client_metadata: 0,
-                conditional_order_trigger_subticks: 0,
-            }],
-            cancel_client_ids: vec![],
-            cancel_good_til_block: 0,
-        };
-
-        let serialized_msg = serde_json::to_string(&msg).unwrap();
-        println!("{}", serialized_msg);
-    }
-
-    #[test]
-    fn example_serialize_market_make_cancel_order() {
-        let msg = ExecuteMsg::MarketMake {
-            subaccount_number: 0,
-            clob_pair_id: 0,
-            new_orders: vec![],
-            cancel_client_ids: vec![101],
-            cancel_good_til_block: 0,
         };
 
         let serialized_msg = serde_json::to_string(&msg).unwrap();

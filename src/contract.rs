@@ -87,23 +87,6 @@ pub fn execute(
             max_num_withdrawals,
         )
         .map_err(Into::into),
-        ExecuteMsg::MarketMake {
-            subaccount_number,
-            clob_pair_id,
-            new_orders,
-            cancel_client_ids,
-            cancel_good_til_block,
-        } => crate::execute::market_make::market_make(
-            deps,
-            env,
-            info,
-            subaccount_number,
-            clob_pair_id,
-            new_orders,
-            cancel_client_ids,
-            cancel_good_til_block,
-        )
-        .map_err(Into::into),
     }
 }
 
