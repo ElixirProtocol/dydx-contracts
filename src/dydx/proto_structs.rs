@@ -23,6 +23,7 @@ pub struct AssetPosition {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema, Default)]
 pub struct PerpetualPosition {
+    #[serde(default)]
     pub perpetual_id: u32,
     pub quantums: SerializableInt,
     pub funding_index: SerializableInt,
