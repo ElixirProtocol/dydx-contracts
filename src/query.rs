@@ -184,7 +184,7 @@ pub fn query_validated_dydx_position(
         .find(|p| p.perpetual_id == perp_id);
     let perp_usdc_value = match perp_position {
         Some(p) => {
-            let quantums: u128 = p.quantums.i.to_u128().unwrap();
+            let quantums: u128 = p.quantums.i.to_u128().unwrap_or(0);
             let position = Decimal::from_atomics(quantums, perp_exponent).unwrap();
             position * price
         }
