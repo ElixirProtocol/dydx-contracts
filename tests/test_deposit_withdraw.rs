@@ -6,7 +6,7 @@ mod tests {
         fetch_response_events, instantiate_contract_with_trader_and_vault, mint_native, test_setup,
         TEST_CONTRACT_ADDR,
     };
-    use cosmwasm_std::{Coin, Decimal, SignedDecimal, SignedDecimal256, Uint128};
+    use cosmwasm_std::{Coin, SignedDecimal, SignedDecimal256, Uint128};
     use cw_multi_test::Executor;
     use elixir_dydx_integration::{
         dydx::{proto_structs::PerpetualPosition, serializable_int::SerializableInt},
@@ -331,7 +331,10 @@ mod tests {
         assert!(withdrawal_queue.len() == 1);
         assert!(withdrawal_queue[0].recipient_addr == user2);
         assert!(withdrawal_queue[0].lp_tokens == Uint128::new(withdraw_amount));
-        assert!(withdrawal_queue[0].usdc_equivalent == SignedDecimal256::from_atomics(1i128, 3).unwrap());
+        assert!(
+            withdrawal_queue[0].usdc_equivalent
+                == SignedDecimal256::from_atomics(1i128, 3).unwrap()
+        );
 
         // tokens are moved to smart contract temporarily
         assert!(user_lp_after.balance == Uint128::new(deposit_amount - withdraw_amount));
@@ -923,126 +926,127 @@ mod tests {
             .unwrap();
     }
 
-    // #[test]
-    // fn process_withdrawals_will_fail_if_it_increases_leverage_over_1x() {
-    //     let (mut app, code_id, users) = test_setup();
-    //     let owner = users[0].clone();
-    //     let user1 = users[1].clone();
-    //     let user2 = users[2].clone();
-    //     let deposit_amount = 500_001;
-    //     let perp_quantums = 82_802; // we want the value to be ~ $0.50, so 60384.18054 * x = 0.5
+    #[test]
+    fn process_withdrawals_will_fail_if_it_increases_leverage_over_1x() {
+        let (mut app, code_id, users) = test_setup();
+        let owner = users[0].clone();
+        let user1 = users[1].clone();
+        let user2 = users[2].clone();
+        let deposit_amount = 500_001;
+        let perp_quantums = 82_802; // we want the value to be ~ $0.50, so 60384.18054 * x = 0.5
 
-    //     let app_addr = instantiate_contract_with_trader_and_vault(
-    //         &mut app,
-    //         code_id,
-    //         owner.clone(),
-    //         user1.clone(),
-    //     );
+        let app_addr = instantiate_contract_with_trader_and_vault(
+            &mut app,
+            code_id,
+            owner.clone(),
+            user1.clone(),
+        );
 
-    //     mint_native(
-    //         &mut app,
-    //         user2.to_string(),
-    //         USDC_COIN_TYPE.to_string(),
-    //         deposit_amount,
-    //     );
+        mint_native(
+            &mut app,
+            user2.to_string(),
+            USDC_COIN_TYPE.to_string(),
+            deposit_amount,
+        );
 
-    //     let _deposit_response = app
-    //         .execute_contract(
-    //             user2.clone(),
-    //             app_addr.clone(),
-    //             &ExecuteMsg::DepositIntoVault { perp_id: 0 },
-    //             &[Coin {
-    //                 denom: USDC_COIN_TYPE.to_string(),
-    //                 amount: Uint128::new(deposit_amount),
-    //             }],
-    //         )
-    //         .unwrap();
+        let _deposit_response = app
+            .execute_contract(
+                user2.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::DepositIntoVault { perp_id: 0 },
+                &[Coin {
+                    denom: USDC_COIN_TYPE.to_string(),
+                    amount: Uint128::new(deposit_amount),
+                }],
+            )
+            .unwrap();
 
-    //     app.router().custom.sudo_add_perp_position(
-    //         0,
-    //         PerpetualPosition {
-    //             perpetual_id: 0,
-    //             quantums: SerializableInt::new(perp_quantums.into()),
-    //             funding_index: SerializableInt::new(BigInt::ZERO),
-    //         },
-    //     );
+        app.router().custom.sudo_add_perp_position(
+            0,
+            PerpetualPosition {
+                perpetual_id: 0,
+                quantums: SerializableInt::new(perp_quantums.into()),
+                funding_index: SerializableInt::new(BigInt::ZERO),
+            },
+        );
 
-    //     // this withdrawal works
-    //     let _withdraw_response = app
-    //         .execute_contract(
-    //             user2.clone(),
-    //             app_addr.clone(),
-    //             &ExecuteMsg::RequestWithdrawal {
-    //                 perp_id: 0,
-    //                 usdc_amount: 1u64,
-    //             },
-    //             &[],
-    //         )
-    //         .unwrap();
+        // this withdrawal works
+        let _withdraw_response = app
+            .execute_contract(
+                user2.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::RequestWithdrawal {
+                    perp_id: 0,
+                    usdc_amount: 1u64,
+                },
+                &[],
+            )
+            .unwrap();
 
-    //     let _process_withdrawal_response = app
-    //         .execute_contract(
-    //             user1.clone(),
-    //             app_addr.clone(),
-    //             &ExecuteMsg::ProcessWithdrawals {
-    //                 perp_id: 0,
-    //                 max_num_withdrawals: 1,
-    //             },
-    //             &[],
-    //         )
-    //         .unwrap();
+        let _process_withdrawal_response = app
+            .execute_contract(
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::ProcessWithdrawals {
+                    perp_id: 0,
+                    max_num_withdrawals: 1,
+                },
+                &[],
+            )
+            .unwrap();
 
-    //     let vault_resp: VaultOwnershipResponse = app
-    //         .wrap()
-    //         .query_wasm_smart(
-    //             app_addr.clone(),
-    //             &QueryMsg::VaultOwnership {
-    //                 perp_id: 0,
-    //                 depositor: user1.to_string(),
-    //             },
-    //         )
-    //         .unwrap();
-    //     assert!(vault_resp.subaccount_owner == TEST_CONTRACT_ADDR.to_string());
-    //     assert!(vault_resp.subaccount_number == 0);
-    //     assert!(vault_resp.asset_usdc_value == Decimal::from_atomics(5u128, 1).unwrap());
-    //     assert!(
-    //         vault_resp.perp_usdc_value == Decimal::from_atomics(499993091707308u128, 15).unwrap()
-    //     );
+        let vault_resp: VaultOwnershipResponse = app
+            .wrap()
+            .query_wasm_smart(
+                app_addr.clone(),
+                &QueryMsg::VaultOwnership {
+                    perp_id: 0,
+                    depositor: user1.to_string(),
+                },
+            )
+            .unwrap();
+        assert!(vault_resp.subaccount_owner == TEST_CONTRACT_ADDR.to_string());
+        assert!(vault_resp.subaccount_number == 0);
+        assert!(vault_resp.asset_usdc_value == SignedDecimal::from_atomics(5i128, 1).unwrap());
+        assert!(
+            vault_resp.perp_usdc_value
+                == SignedDecimal::from_atomics(499993091707308i128, 15).unwrap()
+        );
 
-    //     // now it will fail
-    //     let _withdraw_response = app
-    //         .execute_contract(
-    //             user2.clone(),
-    //             app_addr.clone(),
-    //             &ExecuteMsg::RequestWithdrawal {
-    //                 perp_id: 0,
-    //                 usdc_amount: 6u64,
-    //             },
-    //             &[],
-    //         )
-    //         .unwrap();
+        // now it will fail
+        let _withdraw_response = app
+            .execute_contract(
+                user2.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::RequestWithdrawal {
+                    perp_id: 0,
+                    usdc_amount: 6u64,
+                },
+                &[],
+            )
+            .unwrap();
 
-    //     let process_withdrawal_response = app.execute_contract(
-    //         user1.clone(),
-    //         app_addr.clone(),
-    //         &ExecuteMsg::ProcessWithdrawals {
-    //             perp_id: 0,
-    //             max_num_withdrawals: 1,
-    //         },
-    //         &[],
-    //     );
+        let process_withdrawal_response = app.execute_contract(
+            user1.clone(),
+            app_addr.clone(),
+            &ExecuteMsg::ProcessWithdrawals {
+                perp_id: 0,
+                max_num_withdrawals: 1,
+            },
+            &[],
+        );
 
-    //     assert!(process_withdrawal_response.is_err());
-    //     if let Some(error) = process_withdrawal_response
-    //         .unwrap_err()
-    //         .downcast_ref::<ContractError>()
-    //     {
-    //         assert_eq!(
-    //             error,
-    //             &ContractError::WithdrawalWouldIncreaseLeverageTooMuch { perp_id: 0 }
-    //         );
-    //     } else {
-    //         panic!("Expected ContractError::WithdrawalWouldIncreaseLeverageTooMuch");
-    //     }
-    // }
+        assert!(process_withdrawal_response.is_err());
+        if let Some(error) = process_withdrawal_response
+            .unwrap_err()
+            .downcast_ref::<ContractError>()
+        {
+            assert_eq!(
+                error,
+                &ContractError::WithdrawalWouldIncreaseLeverageTooMuch { perp_id: 0 }
+            );
+        } else {
+            panic!("Expected ContractError::WithdrawalWouldIncreaseLeverageTooMuch");
+        }
+    }
 }

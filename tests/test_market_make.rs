@@ -5,11 +5,16 @@ mod tests {
     use cosmwasm_std::{Coin, Uint128};
     use cw_multi_test::Executor;
     use elixir_dydx_integration::{
-        dydx::msg::{OrderSide, OrderTimeInForce},
+        dydx::{
+            msg::{OrderSide, OrderTimeInForce},
+            proto_structs::PerpetualPosition,
+            serializable_int::SerializableInt,
+        },
         error::ContractError,
         execute::{market_make::NewOrder, USDC_COIN_TYPE},
         msg::ExecuteMsg,
     };
+    use num_bigint::BigInt;
 
     use crate::utils::{
         fetch_response_events, instantiate_contract_with_trader_and_vault, mint_native, test_setup,
@@ -467,7 +472,7 @@ mod tests {
         let (mut app, code_id, users) = test_setup();
         let owner = users[0].clone();
         let user1 = users[1].clone();
-        let deposit_amount = 1_999_999;
+        let deposit_amount = 999_999;
 
         let app_addr = instantiate_contract_with_trader_and_vault(
             &mut app,
@@ -508,14 +513,12 @@ mod tests {
             &[],
         );
 
-        // fails because order is worth $1 and we only have $1.999999... in deposits -> leverage increases over 1x
+        // fails because order is worth $1 and we only have $0.999999... in deposits -> leverage increases over 1x
         assert!(place_response.is_err());
         if let Some(error) = place_response.unwrap_err().downcast_ref::<ContractError>() {
             assert_eq!(
                 error,
-                &ContractError::NewOrdersWouldIncreaseLeverageTooMuch {
-                    perp_id: 0,
-                }
+                &ContractError::NewOrdersWouldIncreaseLeverageTooMuch { perp_id: 0 }
             );
         } else {
             panic!("Expected ContractError::NewOrderWouldIncreaseLeverageTooMuch");
@@ -542,6 +545,94 @@ mod tests {
                     subaccount_number: SUBACCOUNT_NUMBER,
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders: vec![new_order()],
+                    cancel_client_ids: vec![],
+                    cancel_good_til_block: 0,
+                },
+                &[],
+            )
+            .unwrap();
+        assert!(app.router().custom.has_order(SUBACCOUNT_NUMBER, CLIENT_ID));
+    }
+
+    #[test]
+    fn placing_orders_succeds_if_leverage_is_over_1x_but_decreasing() {
+        let (mut app, code_id, users) = test_setup();
+        let owner = users[0].clone();
+        let user1 = users[1].clone();
+        let deposit_amount = 800_000;
+        let perp_quantums = 165_604; // we want the value to be ~ $1.00, so 60384.18054 * x = 1.0
+
+        app.router().custom.sudo_add_perp_position(
+            0,
+            PerpetualPosition {
+                perpetual_id: 0,
+                quantums: SerializableInt::new(perp_quantums.into()),
+                funding_index: SerializableInt::new(BigInt::ZERO),
+            },
+        );
+
+        let app_addr = instantiate_contract_with_trader_and_vault(
+            &mut app,
+            code_id,
+            owner.clone(),
+            user1.clone(),
+        );
+
+        mint_native(
+            &mut app,
+            user1.to_string(),
+            USDC_COIN_TYPE.to_string(),
+            deposit_amount,
+        );
+
+        let _deposit_response = app
+            .execute_contract(
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::DepositIntoVault { perp_id: 0 },
+                &[Coin {
+                    denom: USDC_COIN_TYPE.to_string(),
+                    amount: Uint128::new(deposit_amount),
+                }],
+            )
+            .unwrap();
+
+        let mut new_order = new_order();
+        new_order.quantums = 1;
+        let place_response = app.execute_contract(
+            user1.clone(),
+            app_addr.clone(),
+            &ExecuteMsg::MarketMake {
+                subaccount_number: SUBACCOUNT_NUMBER,
+                clob_pair_id: CLOB_PAIR_ID,
+                new_orders: vec![new_order.clone()],
+                cancel_client_ids: vec![],
+                cancel_good_til_block: 0,
+            },
+            &[],
+        );
+
+        // bids are blocked because account has $0.80 of collateral and is already long $1.
+        assert!(place_response.is_err());
+        if let Some(error) = place_response.unwrap_err().downcast_ref::<ContractError>() {
+            assert_eq!(
+                error,
+                &ContractError::NewOrdersWouldIncreaseLeverageTooMuch { perp_id: 0 }
+            );
+        } else {
+            panic!("Expected ContractError::NewOrderWouldIncreaseLeverageTooMuch");
+        }
+
+        // sells are allowed, because they decrease account leverage
+        new_order.side = OrderSide::Sell;
+        let _place_response = app
+            .execute_contract(
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::MarketMake {
+                    subaccount_number: SUBACCOUNT_NUMBER,
+                    clob_pair_id: CLOB_PAIR_ID,
+                    new_orders: vec![new_order],
                     cancel_client_ids: vec![],
                     cancel_good_til_block: 0,
                 },

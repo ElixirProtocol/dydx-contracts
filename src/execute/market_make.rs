@@ -172,9 +172,11 @@ pub fn market_make(
     if num_bids > 3 || num_asks > 3 {
         return Err(ContractError::CanOnlyPlaceThreeOrdersPerSide {});
     }
+    let asset_usdc_value = vp.asset_usdc_value.abs_diff(SignedDecimal::zero());
+    let new_perp_value = (vp.perp_usdc_value + net_order_value).abs_diff(SignedDecimal::zero());
+    let leverage_increased = new_perp_value > vp.perp_usdc_value.abs_diff(SignedDecimal::zero());
 
-    let net_new_perp_value = (vp.perp_usdc_value + net_order_value).abs_diff(SignedDecimal::zero());
-    if net_new_perp_value > vp.asset_usdc_value.abs_diff(SignedDecimal::zero()) {
+    if new_perp_value > asset_usdc_value && leverage_increased {
         return Err(ContractError::NewOrdersWouldIncreaseLeverageTooMuch { perp_id });
     }
 
