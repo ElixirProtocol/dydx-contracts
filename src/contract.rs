@@ -136,7 +136,11 @@ pub fn migrate(
     }
     // note: better to do proper semver compare, but string compare *usually* works
     if ver.version >= CONTRACT_VERSION.to_string() {
-        return Err(StdError::generic_err(format!("Cannot upgrade from a newer version {} -> {}", ver.version, CONTRACT_VERSION)).into());
+        return Err(StdError::generic_err(format!(
+            "Cannot upgrade from a newer version {} -> {}",
+            ver.version, CONTRACT_VERSION
+        ))
+        .into());
     }
     // set the new version
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;

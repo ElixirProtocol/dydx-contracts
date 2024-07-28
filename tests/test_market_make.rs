@@ -513,9 +513,8 @@ mod tests {
         if let Some(error) = place_response.unwrap_err().downcast_ref::<ContractError>() {
             assert_eq!(
                 error,
-                &ContractError::NewOrderWouldIncreaseLeverageTooMuch {
+                &ContractError::NewOrdersWouldIncreaseLeverageTooMuch {
                     perp_id: 0,
-                    new_order: new_order()
                 }
             );
         } else {

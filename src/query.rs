@@ -11,8 +11,8 @@ use crate::{
     },
     state::{LP_BALANCES, LP_TOKENS, STATE, VAULTS_BY_PERP_ID, WITHDRAWAL_QUEUES},
 };
-use cosmwasm_std::{Decimal, Deps, Order, StdResult};
-use num_traits::ToPrimitive;
+use cosmwasm_std::{Deps, Int256, Order, SignedDecimal, SignedDecimal256, StdResult};
+use num_traits::{Signed, ToPrimitive};
 
 pub fn perp_clob_details(
     deps: Deps<DydxQueryWrapper>,
@@ -43,20 +43,17 @@ pub fn withdrawals(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<With
     let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
 
     let lp_token_info = lp_token_info(deps, perp_id)?;
-    let outstanding_lp_tokens_decimal =
-        Decimal::from_atomics(lp_token_info.total_supply, lp_token_info.decimals as u32).unwrap();
+    let outstanding_lp_tokens = Int256::try_from(lp_token_info.total_supply).unwrap();
 
     let withdrawals: Vec<WithdrawalResponse> = q
         .into_iter()
         .map(|w| {
-            let lp_tokens_decimal =
-                Decimal::from_atomics(w.lp_tokens, lp_token_info.decimals as u32).unwrap();
-            let lp_fraction = lp_tokens_decimal / outstanding_lp_tokens_decimal;
+            let lp_fraction = SignedDecimal256::from_ratio(w.lp_tokens, outstanding_lp_tokens);
 
             WithdrawalResponse {
                 recipient_addr: w.recipient_addr,
                 lp_tokens: w.lp_tokens,
-                usdc_equivalent: subaccount_value * lp_fraction,
+                usdc_equivalent: SignedDecimal256::from(subaccount_value) * lp_fraction,
             }
         })
         .collect();
@@ -129,8 +126,8 @@ pub fn lp_token_info(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<To
 }
 
 pub struct ValidatedDydxPosition {
-    pub asset_usdc_value: Decimal,
-    pub perp_usdc_value: Decimal,
+    pub asset_usdc_value: SignedDecimal,
+    pub perp_usdc_value: SignedDecimal,
 }
 
 /// Queries dYdX for a subaccount and the market price of the perp.
@@ -157,7 +154,7 @@ pub fn query_validated_dydx_position(
     };
     let price_exponent = (-1 * market_price_resp.market_price.exponent) as u32;
     let price =
-        Decimal::from_atomics(market_price_resp.market_price.price, price_exponent).unwrap();
+        SignedDecimal::from_atomics(market_price_resp.market_price.price, price_exponent).unwrap();
 
     let usdc_position = subaccount
         .asset_positions
@@ -165,10 +162,10 @@ pub fn query_validated_dydx_position(
         .find(|p| p.asset_id == USDC_ID);
     let asset_usdc_value = match usdc_position {
         Some(p) => {
-            let quantums: u128 = p.quantums.to_big_int().to_u128().unwrap_or(0);
-            Decimal::from_atomics(quantums, USDC_DENOM).unwrap()
+            let quantums: i128 = p.quantums.to_big_int().to_i128().unwrap_or(0);
+            SignedDecimal::from_atomics(quantums, USDC_DENOM).unwrap()
         }
-        None => Decimal::zero(),
+        None => SignedDecimal::zero(),
     };
 
     if perp_params.atomic_resolution > 0 {
@@ -184,11 +181,17 @@ pub fn query_validated_dydx_position(
         .find(|p| p.perpetual_id == perp_id);
     let perp_usdc_value = match perp_position {
         Some(p) => {
-            let quantums: u128 = p.quantums.to_big_int().to_u128().unwrap_or(0);
-            let position = Decimal::from_atomics(quantums, perp_exponent).unwrap();
-            position * price
+            let big_int = p.quantums.to_big_int();
+            let is_neg = big_int.is_negative();
+            let quantums: i128 = big_int.to_i128().unwrap_or(0);
+            let position = SignedDecimal::from_atomics(quantums, perp_exponent).unwrap();
+            if is_neg {
+                position * price * SignedDecimal::negative_one()
+            } else {
+                position * price
+            }
         }
-        None => Decimal::zero(),
+        None => SignedDecimal::zero(),
     };
 
     let validated_position = ValidatedDydxPosition {

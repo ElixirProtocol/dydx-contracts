@@ -73,8 +73,11 @@ pub enum ContractError {
     #[error("Withdrawal would increase leverage over 1x for subaccount with perp_id: {perp_id}")]
     WithdrawalWouldIncreaseLeverageTooMuch { perp_id: u32 },
 
-    #[error("New order would increase leverage over 1x for subaccount with perp_id: {perp_id}, {new_order}")]
-    NewOrderWouldIncreaseLeverageTooMuch { perp_id: u32, new_order: NewOrder },
+    #[error("New orders would increase leverage over 1x for subaccount with perp_id: {perp_id}")]
+    NewOrdersWouldIncreaseLeverageTooMuch { perp_id: u32 },
+
+    #[error("Cannot place new order with an unspecified side: {new_order}")]
+    MustSpecifyOrderSide { new_order: NewOrder },
 
     #[error("Trader can only place at most 3 bids and 3 asks at a time")]
     CanOnlyPlaceThreeOrdersPerSide {},

@@ -1,4 +1,4 @@
-use cosmwasm_std::{Decimal, DepsMut, Env, Event, MessageInfo, Response, Uint128};
+use cosmwasm_std::{Decimal, DepsMut, Env, Event, MessageInfo, Response, SignedDecimal, Uint128};
 
 use crate::dydx::msg::DydxMsg;
 use crate::dydx::query::DydxQueryWrapper;
@@ -49,7 +49,8 @@ pub fn deposit_into_vault(
     }
 
     let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
-    let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
+    let subaccount_value_signed = vp.asset_usdc_value + vp.perp_usdc_value;
+    let subaccount_value = subaccount_value_signed.abs_diff(SignedDecimal::zero());
     let deposit_value = Decimal::from_atomics(amount, USDC_DENOM).unwrap();
     let lp_token_info = lp_token_info(deps.as_ref(), perp_id)?;
 
@@ -131,7 +132,8 @@ pub fn request_withdrawal(
     } else {
         // withdraw some
         let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
-        let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
+        let subaccount_value_signed = vp.asset_usdc_value + vp.perp_usdc_value;
+        let subaccount_value = subaccount_value_signed.abs_diff(SignedDecimal::zero());
         let ownership_fraction = user_lp_tokens_decimal / outstanding_lp_tokens_decimal;
 
         let requested_withdraw_value = Decimal::from_atomics(usdc_amount, USDC_DENOM).unwrap();
@@ -261,7 +263,8 @@ pub fn process_withdrawals(
     let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
     let mut asset_value = vp.asset_usdc_value.clone();
     let perp_value = vp.perp_usdc_value;
-    let mut subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
+    let subaccount_value_signed = vp.asset_usdc_value + vp.perp_usdc_value;
+    let mut subaccount_value = subaccount_value_signed.abs_diff(SignedDecimal::zero());
 
     let (
         _queued_lp_tokens,
@@ -286,13 +289,13 @@ pub fn process_withdrawals(
         // make quantums
         let ownership_fraction = lp_amount_decimal / outstanding_lp_tokens_decimal;
         let withdraw_value = ownership_fraction * subaccount_value;
-        assert!(withdraw_value <= subaccount_value);
+        assert!(withdraw_value <= subaccount_value.into());
         assert!(ownership_fraction <= Decimal::one());
 
         let withdraw_quantums = decimal_to_native_round_down(withdraw_value, USDC_DENOM).unwrap();
 
         subaccount_value -= withdraw_value;
-        asset_value -= withdraw_value;
+        asset_value -= SignedDecimal::try_from(withdraw_value).unwrap();
         // validate withdraw amount
         if withdraw_quantums >= u64::MAX.into() {
             return Err(ContractError::InvalidWithdrawalAmount {

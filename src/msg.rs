@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, CustomQuery, Decimal, Uint128};
+use cosmwasm_std::{Addr, CustomQuery, SignedDecimal, SignedDecimal256, Uint128};
 
 use crate::{
     dydx::{proto_structs::Subaccount, query::LiquidityTiersResponse},
@@ -79,7 +79,7 @@ pub struct TraderResponse {
 pub struct WithdrawalResponse {
     pub recipient_addr: Addr,
     pub lp_tokens: Uint128,
-    pub usdc_equivalent: Decimal,
+    pub usdc_equivalent: SignedDecimal256,
 }
 
 #[cw_serde]
@@ -97,8 +97,8 @@ pub struct VaultsResponse {
 pub struct VaultOwnershipResponse {
     pub subaccount_owner: String,
     pub subaccount_number: u32,
-    pub asset_usdc_value: Decimal,
-    pub perp_usdc_value: Decimal,
+    pub asset_usdc_value: SignedDecimal,
+    pub perp_usdc_value: SignedDecimal,
     pub depositor_lp_tokens: Uint128,
     pub outstanding_lp_tokens: Uint128,
 }

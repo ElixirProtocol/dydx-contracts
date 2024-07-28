@@ -1,7 +1,7 @@
 use core::fmt;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Decimal, DepsMut, Env, Event, MessageInfo, Response};
+use cosmwasm_std::{DepsMut, Env, Event, MessageInfo, Response, SignedDecimal};
 
 use super::USDC_DENOM;
 use crate::dydx::msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce};
@@ -77,8 +77,6 @@ pub fn market_make(
     let querier = DydxQuerier::new(&deps.querier);
     let perp_details = querier.query_perpetual_clob_details(perp_id)?;
     let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
-    let mut asset_value = vp.asset_usdc_value.clone();
-    let mut perp_value = vp.perp_usdc_value.clone();
 
     // validate sender (must be configured trader)
     if info.sender != &state.trader {
@@ -127,25 +125,27 @@ pub fn market_make(
 
     let mut num_bids = 0;
     let mut num_asks = 0;
+    let mut net_order_value = SignedDecimal::zero();
     // then add new orders
     if new_orders.len() > 0 {
         for new_order in new_orders {
-            let order_value = Decimal::from_atomics(new_order.quantums, USDC_DENOM).unwrap();
-            if order_value > asset_value || asset_value < perp_value + (order_value + order_value) {
-                return Err(ContractError::NewOrderWouldIncreaseLeverageTooMuch {
-                    perp_id,
-                    new_order,
-                });
-            }
-
-            match new_order.side {
-                OrderSide::Unspecified => (),
-                OrderSide::Buy => num_bids += 1,
-                OrderSide::Sell => num_asks += 1,
+            let order_sign = match new_order.side {
+                OrderSide::Unspecified => {
+                    return Err(ContractError::MustSpecifyOrderSide { new_order })
+                }
+                OrderSide::Buy => {
+                    num_bids += 1;
+                    SignedDecimal::one()
+                }
+                OrderSide::Sell => {
+                    num_asks += 1;
+                    SignedDecimal::negative_one()
+                }
             };
+            let order_value =
+                SignedDecimal::from_atomics(new_order.quantums, USDC_DENOM).unwrap() * order_sign;
 
-            asset_value -= order_value;
-            perp_value += order_value;
+            net_order_value += order_value;
 
             let place_event = new_order.get_place_event(subaccount_number, clob_pair_id);
             let place_msg = DydxMsg::PlaceOrderV1 {
@@ -171,6 +171,11 @@ pub fn market_make(
     // validate at most 3 orders per side
     if num_bids > 3 || num_asks > 3 {
         return Err(ContractError::CanOnlyPlaceThreeOrdersPerSide {});
+    }
+
+    let net_new_perp_value = (vp.perp_usdc_value + net_order_value).abs_diff(SignedDecimal::zero());
+    if net_new_perp_value > vp.asset_usdc_value.abs_diff(SignedDecimal::zero()) {
+        return Err(ContractError::NewOrdersWouldIncreaseLeverageTooMuch { perp_id });
     }
 
     Ok(Response::new()
