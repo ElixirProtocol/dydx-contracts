@@ -12,6 +12,8 @@ use cw20_base::msg::MigrateMsg;
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Instantiates the smart contract.
+/// Sets the deployer as the permissioned trader.
 pub fn instantiate(
     deps: DepsMut<DydxQueryWrapper>,
     env: Env,

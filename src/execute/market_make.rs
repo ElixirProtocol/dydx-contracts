@@ -8,7 +8,7 @@ use crate::dydx::msg::{DydxMsg, OrderConditionType, OrderSide, OrderTimeInForce}
 use crate::dydx::querier::DydxQuerier;
 use crate::dydx::query::DydxQueryWrapper;
 use crate::error::ContractResult;
-use crate::query::query_validated_dydx_position;
+use crate::query::query_dydx_position;
 use crate::state::VAULTS_BY_PERP_ID;
 use crate::{error::ContractError, state::STATE};
 
@@ -60,6 +60,8 @@ pub const LONG_TERM_ORDER_FLAGS: u32 = 64;
 /// Batch cancels and places up to 3 bids and 3 asks on dYdX.
 /// Requires the sender to be the trader and the orders to be placed in an existing vault.
 /// This entrypoint will only send messages passed in as arguments. This means that it can be used selectively to only place or cancel orders.
+/// Orders that would cause the subaccount's perp value to asset value are rejected, unless perp value > asset value when this function is called.
+/// In that case, the orders must decrease perp value.
 pub fn market_make(
     deps: DepsMut<DydxQueryWrapper>,
     _env: Env,
@@ -76,7 +78,7 @@ pub fn market_make(
 
     let querier = DydxQuerier::new(&deps.querier);
     let perp_details = querier.query_perpetual_clob_details(perp_id)?;
-    let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
+    let pos = query_dydx_position(deps.as_ref(), perp_id)?;
 
     // validate sender (must be configured trader)
     if info.sender != &state.trader {
@@ -172,9 +174,9 @@ pub fn market_make(
     if num_bids > 3 || num_asks > 3 {
         return Err(ContractError::CanOnlyPlaceThreeOrdersPerSide {});
     }
-    let asset_usdc_value = vp.asset_usdc_value.abs_diff(SignedDecimal::zero());
-    let new_perp_value = (vp.perp_usdc_value + net_order_value).abs_diff(SignedDecimal::zero());
-    let leverage_increased = new_perp_value > vp.perp_usdc_value.abs_diff(SignedDecimal::zero());
+    let asset_usdc_value = pos.asset_usdc_value.abs_diff(SignedDecimal::zero());
+    let new_perp_value = (pos.perp_usdc_value + net_order_value).abs_diff(SignedDecimal::zero());
+    let leverage_increased = new_perp_value > pos.perp_usdc_value.abs_diff(SignedDecimal::zero());
 
     if new_perp_value > asset_usdc_value && leverage_increased {
         return Err(ContractError::NewOrdersWouldIncreaseLeverageTooMuch { perp_id });

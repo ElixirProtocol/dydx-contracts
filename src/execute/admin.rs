@@ -7,9 +7,11 @@ use crate::error::ContractResult;
 use crate::state::{LP_TOKENS, VAULTS_BY_PERP_ID, WITHDRAWAL_QUEUES};
 use crate::{error::ContractError, state::STATE};
 
-use super::helpers::{validate_addr_string, verify_trader};
+use super::helpers::{validate_addr_string, verify_sender_is_trader};
 use super::USDC_DENOM;
 
+/// Set the permissioned trader. 
+/// Can only be called by the current trader.
 pub fn set_trader(
     deps: DepsMut<DydxQueryWrapper>,
     info: MessageInfo,
@@ -18,7 +20,7 @@ pub fn set_trader(
     let mut state = STATE.load(deps.storage)?;
     let old_trader_addr = &state.trader;
 
-    verify_trader(&info.sender, &state.trader)?;
+    verify_sender_is_trader(&info.sender, &state.trader)?;
     let new_trader_addr = validate_addr_string(&deps, new_trader.clone())?;
 
     let event = Event::new("new_trader")
@@ -35,7 +37,9 @@ pub fn set_trader(
     Ok(resp)
 }
 
-/// Creates a vault and the associated dYdX subaccount required for trading.
+/// Creates a vault and the associated dYdX subaccount required for trading. 
+/// Also creates an LP token and withdrawal queue for the vault.
+/// Vaults are unique for a dYdX perp market and as such use `perp_id` as their identifier throughout the contract. 
 pub fn create_vault(
     deps: DepsMut<DydxQueryWrapper>,
     env: Env,
@@ -43,7 +47,7 @@ pub fn create_vault(
     perp_id: u32,
 ) -> ContractResult<Response<DydxMsg>> {
     let state = STATE.load(deps.storage)?;
-    verify_trader(&info.sender, &state.trader)?;
+    verify_sender_is_trader(&info.sender, &state.trader)?;
 
     if VAULTS_BY_PERP_ID.has(deps.storage, perp_id) {
         return Err(ContractError::VaultAlreadyInitialized { perp_id });

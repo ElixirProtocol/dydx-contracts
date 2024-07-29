@@ -407,7 +407,7 @@ impl Module for TestDydx {
                 })?)
             }
             DydxQuery::LiquidityTiers => {
-                todo!()
+                unimplemented!()
             }
         }
     }
@@ -426,9 +426,9 @@ impl Module for TestDydx {
     {
         match msg {
             SudoMsg::Bank(bank_sudo) => self.bank.sudo(api, storage, router, block, bank_sudo),
-            SudoMsg::Custom(_) => todo!(),
-            SudoMsg::Staking(_) => todo!(),
-            SudoMsg::Wasm(_) => todo!(),
+            SudoMsg::Custom(_) => unimplemented!(),
+            SudoMsg::Staking(_) => unimplemented!(),
+            SudoMsg::Wasm(_) => unimplemented!(),
         }
     }
 }

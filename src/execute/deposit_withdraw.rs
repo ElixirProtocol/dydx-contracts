@@ -7,8 +7,8 @@ use crate::execute::helpers::{
     burn_lp_tokens, decimal_to_native_round_down, get_contract_subaccount_id, mint_lp_tokens,
 };
 use crate::execute::{USDC_COIN_TYPE, USDC_DENOM, USDC_ID};
-use crate::query::{lp_token_info, query_validated_dydx_position};
-use crate::state::{Withdrawal, VAULTS_BY_PERP_ID, WITHDRAWAL_QUEUES};
+use crate::query::{lp_token_info, query_dydx_position};
+use crate::state::{WithdrawalRequest, VAULTS_BY_PERP_ID, WITHDRAWAL_QUEUES};
 use crate::{error::ContractError, state::STATE};
 
 use super::helpers::{
@@ -16,18 +16,20 @@ use super::helpers::{
     transfer_lp_tokens_from_withdrawal_queue, transfer_lp_tokens_to_withdrawal_queue,
 };
 
-/// Allows a user to deposit into the market-making vault.
-///
+/// Processes a user to deposit into the market-making vault.
+/// This consists of minting LP tokens such that the % of LP tokens that 
+/// a user owns is the same as their % of deposit value in the pool.
 pub fn deposit_into_vault(
     deps: DepsMut<DydxQueryWrapper>,
     env: Env,
     info: MessageInfo,
     perp_id: u32,
 ) -> ContractResult<Response<DydxMsg>> {
+
     let subaccount_id = get_contract_subaccount_id(&env, perp_id);
     let amount = info.funds[0].amount;
 
-    // assert that user is depositing only USDC with a non-zero amount
+    // assert that user is depositing only USDC with amount > 0
     if info.funds.len() != 1 {
         return Err(ContractError::CanOnlyDepositOneCointype {});
     }
@@ -48,14 +50,14 @@ pub fn deposit_into_vault(
         return Err(ContractError::VaultNotInitialized { perp_id });
     }
 
-    let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
-    let subaccount_value_signed = vp.asset_usdc_value + vp.perp_usdc_value;
+    let pos = query_dydx_position(deps.as_ref(), perp_id)?;
+    let subaccount_value_signed = pos.asset_usdc_value + pos.perp_usdc_value;
     let subaccount_value = subaccount_value_signed.abs_diff(SignedDecimal::zero());
     let deposit_value = Decimal::from_atomics(amount, USDC_DENOM).unwrap();
     let lp_token_info = lp_token_info(deps.as_ref(), perp_id)?;
 
-    // calculate the new deposit's share of total value
-    // TODO: longer comment, explain math
+    // calculate the new deposit's share of total value using the following:
+    //      new_tokens / (new_tokens + outstanding_lp_tokens) = deposit_value / (deposit_value + subaccount_value).
     let share_value_fraction = deposit_value / (deposit_value + subaccount_value);
     let outstanding_lp_tokens =
         Decimal::from_atomics(lp_token_info.total_supply, lp_token_info.decimals as u32).unwrap();
@@ -110,7 +112,8 @@ pub fn deposit_into_vault(
 
 /// Requests a user withdrawal from the LP vault. Requires that the user has enough LP tokens to support their requested withdrawal.
 /// If 0 is passed as the usdc_amount, the max possible withdrawal will be requested.
-/// Since withdrawals are processed some time in the future, a user may receive more/less than they initially requested.
+/// Since withdrawals are processed some time in the future, a user may receive more/less USDC than they initially requested,
+/// depending on how the value of the subaccount fluctuates.
 pub fn request_withdrawal(
     deps: DepsMut<DydxQueryWrapper>,
     env: Env,
@@ -131,8 +134,8 @@ pub fn request_withdrawal(
         user_lp_tokens
     } else {
         // withdraw some
-        let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
-        let subaccount_value_signed = vp.asset_usdc_value + vp.perp_usdc_value;
+        let pos = query_dydx_position(deps.as_ref(), perp_id)?;
+        let subaccount_value_signed = pos.asset_usdc_value + pos.perp_usdc_value;
         let subaccount_value = subaccount_value_signed.abs_diff(SignedDecimal::zero());
         let ownership_fraction = user_lp_tokens_decimal / outstanding_lp_tokens_decimal;
 
@@ -156,7 +159,7 @@ pub fn request_withdrawal(
     };
 
     // put LP tokens into queue
-    let withdrawal = Withdrawal {
+    let withdrawal = WithdrawalRequest {
         recipient_addr: info.sender.clone(),
         lp_tokens: lp_token_amount,
     };
@@ -260,10 +263,10 @@ pub fn process_withdrawals(
         });
     }
 
-    let vp = query_validated_dydx_position(deps.as_ref(), perp_id)?;
-    let mut asset_value = vp.asset_usdc_value.clone();
-    let perp_value = vp.perp_usdc_value;
-    let subaccount_value_signed = vp.asset_usdc_value + vp.perp_usdc_value;
+    let pos = query_dydx_position(deps.as_ref(), perp_id)?;
+    let mut asset_value = pos.asset_usdc_value.clone();
+    let perp_value = pos.perp_usdc_value;
+    let subaccount_value_signed = pos.asset_usdc_value + pos.perp_usdc_value;
     let mut subaccount_value = subaccount_value_signed.abs_diff(SignedDecimal::zero());
 
     let (

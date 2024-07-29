@@ -92,7 +92,9 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
     #[error("Minting cannot exceed the cap")]
-    CannotExceedCap {},
+    MintingCannotExceedCap {},
+    #[error("Burning cannot exceed the supply")]
+    BurningCannotExceedSupply {},
     #[error("could not find LP token for vault with perp_id: {perp_id}")]
     MissingLpToken { perp_id: u32 },
 

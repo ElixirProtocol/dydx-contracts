@@ -39,8 +39,8 @@ pub fn withdrawals(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<With
         .may_load(deps.storage, perp_id)?
         .ok_or(ContractError::MissingWithdrawalQueue { perp_id })
         .unwrap();
-    let vp = query_validated_dydx_position(deps, perp_id).unwrap();
-    let subaccount_value = vp.asset_usdc_value + vp.perp_usdc_value;
+    let pos = query_dydx_position(deps, perp_id).unwrap();
+    let subaccount_value = pos.asset_usdc_value + pos.perp_usdc_value;
 
     let lp_token_info = lp_token_info(deps, perp_id)?;
     let outstanding_lp_tokens = Int256::try_from(lp_token_info.total_supply).unwrap();
@@ -62,19 +62,21 @@ pub fn withdrawals(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<With
     })
 }
 
+/// Queries all existing vaults and returns the `perp_id` of the underlying dYdX market.
 pub fn vaults(deps: Deps<DydxQueryWrapper>) -> StdResult<VaultsResponse> {
     let vault = VAULTS_BY_PERP_ID.keys(deps.storage, None, None, Order::Ascending);
     let vaults: Vec<u32> = vault.map(|i| i.unwrap()).collect();
     Ok(VaultsResponse { vaults })
 }
 
+/// Queries a depositor's share of the vault with the provided `perp_id`.
 pub fn vault_ownership(
     deps: Deps<DydxQueryWrapper>,
     perp_id: u32,
     depositor: String,
 ) -> StdResult<VaultOwnershipResponse> {
     let state = STATE.load(deps.storage)?;
-    let vp = query_validated_dydx_position(deps, perp_id).unwrap();
+    let pos = query_dydx_position(deps, perp_id).unwrap();
 
     let raw_depositor_balance = lp_balance(deps, perp_id, depositor)?;
     let lp_token_info = lp_token_info(deps, perp_id)?;
@@ -82,8 +84,8 @@ pub fn vault_ownership(
     Ok(VaultOwnershipResponse {
         subaccount_owner: state.contract.to_string(),
         subaccount_number: perp_id,
-        asset_usdc_value: vp.asset_usdc_value,
-        perp_usdc_value: vp.perp_usdc_value,
+        asset_usdc_value: pos.asset_usdc_value,
+        perp_usdc_value: pos.perp_usdc_value,
         depositor_lp_tokens: raw_depositor_balance.balance,
         outstanding_lp_tokens: lp_token_info.total_supply,
     })
@@ -99,6 +101,7 @@ pub fn dydx_subaccount(
     Ok(DydxSubaccountResponse { subaccount })
 }
 
+/// Queries an address' balance of the LP token for the specified perp market.
 pub fn lp_balance(
     deps: Deps<DydxQueryWrapper>,
     perp_id: u32,
@@ -111,6 +114,8 @@ pub fn lp_balance(
     Ok(LpTokenBalanceResponse { perp_id, balance })
 }
 
+/// Queries the metadata of the LP token for the specified perp market. 
+/// This includes the total token supply.
 pub fn lp_token_info(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<TokenInfoResponse> {
     let info = LP_TOKENS
         .may_load(deps.storage, perp_id)?
@@ -125,17 +130,20 @@ pub fn lp_token_info(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<To
     Ok(res)
 }
 
-pub struct ValidatedDydxPosition {
+/// Contains USDC value of a subaccount, split into perp and spot (USDC) components.
+/// Ignores the value of open orders.
+pub struct DydxPosition {
     pub asset_usdc_value: SignedDecimal,
     pub perp_usdc_value: SignedDecimal,
 }
 
-/// Queries dYdX for a subaccount and the market price of the perp.
-/// Throws an error if the subaccount has any unexpected assets.
-pub fn query_validated_dydx_position(
+/// Queries dYdX for the asset and perp values of the subaccount.
+/// Utilizes the market price to value the perp position.
+/// Assumes that the subaccount only holds USDC and a single perp position in the provided market.
+pub fn query_dydx_position(
     deps: Deps<DydxQueryWrapper>,
     perp_id: u32,
-) -> ContractResult<ValidatedDydxPosition> {
+) -> ContractResult<DydxPosition> {
     let state = STATE.load(deps.storage)?;
     let querier = DydxQuerier::new(&deps.querier);
 
@@ -194,10 +202,10 @@ pub fn query_validated_dydx_position(
         None => SignedDecimal::zero(),
     };
 
-    let validated_position = ValidatedDydxPosition {
+    let position = DydxPosition {
         asset_usdc_value,
         perp_usdc_value,
     };
 
-    Ok(validated_position)
+    Ok(position)
 }

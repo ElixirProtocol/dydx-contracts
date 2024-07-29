@@ -10,7 +10,7 @@ use cosmwasm_std::{
     Uint128,
 };
 
-pub fn verify_trader(sender: &Addr, trader: &Addr) -> ContractResult<()> {
+pub fn verify_sender_is_trader(sender: &Addr, trader: &Addr) -> ContractResult<()> {
     if sender != trader {
         return Err(ContractError::SenderIsNotTrader {
             sender: sender.clone(),
@@ -30,6 +30,7 @@ pub fn validate_addr_string(
     }
 }
 
+/// Since vaults and dYdX perp markets have a 1:1 relationship, perp_id and subaccount number are interchangeable.
 pub fn get_contract_subaccount_id(env: &Env, perp_id: u32) -> SubaccountId {
     SubaccountId {
         owner: env.contract.address.to_string(),
@@ -37,6 +38,11 @@ pub fn get_contract_subaccount_id(env: &Env, perp_id: u32) -> SubaccountId {
     }
 }
 
+/// Mint the specified amount of LP tokens to an address.
+/// Should only be called by the smart contract during deposits.
+/// The minting process updates the LP state maps and consists of:
+/// 1. increasing the total LP token supply
+/// 2. increasing the address' LP token balance
 pub fn mint_lp_tokens(
     deps: DepsMut<DydxQueryWrapper>,
     info: MessageInfo,
@@ -62,7 +68,7 @@ pub fn mint_lp_tokens(
     config.total_supply += amount;
     if let Some(limit) = config.get_cap() {
         if config.total_supply > limit {
-            return Err(ContractError::CannotExceedCap {});
+            return Err(ContractError::MintingCannotExceedCap {});
         }
     }
     LP_TOKENS.save(deps.storage, perp_id, &config)?;
@@ -78,6 +84,11 @@ pub fn mint_lp_tokens(
     Ok(())
 }
 
+/// Burn the specified amount of LP tokens owned by an address.
+/// Should only be called by the smart contract during processing of withdrawals.
+/// The burn process updates the LP state maps and consists of:
+/// 1. decreasing the total LP token supply
+/// 2. decreasing the address' LP token balance
 pub fn burn_lp_tokens(
     deps: &mut DepsMut<DydxQueryWrapper>,
     info: &MessageInfo,
@@ -98,8 +109,10 @@ pub fn burn_lp_tokens(
         return Err(ContractError::Unauthorized {});
     }
 
-    assert!(amount <= config.total_supply); // TODO: proper error
-                                            // update supply
+    if amount <= config.total_supply {
+        return Err(ContractError::BurningCannotExceedSupply {});
+    };
+    // update supply
     config.total_supply -= amount;
     LP_TOKENS.save(deps.storage, perp_id, &config)?;
 
@@ -221,7 +234,7 @@ pub fn get_user_and_outstanding_lp_tokens(
     ))
 }
 
-/// convert a decimal to native Uint128. Rounds down
+/// Convert a decimal to native Uint128. Rounds down.
 pub fn decimal_to_native_round_down(
     decimal: Decimal,
     denom: u32,
@@ -232,7 +245,7 @@ pub fn decimal_to_native_round_down(
     );
     decimal.numerator().checked_div_floor(frac)
 }
-/// convert a decimal to native Uint128. Rounds up
+/// Convert a decimal to native Uint128. Rounds up.
 pub fn decimal_to_native_round_up(
     decimal: Decimal,
     denom: u32,
