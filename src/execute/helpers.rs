@@ -109,7 +109,7 @@ pub fn burn_lp_tokens(
         return Err(ContractError::Unauthorized {});
     }
 
-    if amount <= config.total_supply {
+    if amount > config.total_supply {
         return Err(ContractError::BurningCannotExceedSupply {});
     };
     // update supply
