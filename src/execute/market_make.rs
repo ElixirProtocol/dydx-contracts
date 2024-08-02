@@ -70,7 +70,7 @@ pub fn market_make(
     clob_pair_id: u32,
     new_orders: Vec<NewOrder>,
     cancel_client_ids: Vec<u32>,
-    cancel_good_til_block: u32,
+    cancel_good_til_block_time: u32,
 ) -> ContractResult<Response<DydxMsg>> {
     let perp_id = subaccount_number;
 
@@ -113,13 +113,13 @@ pub fn market_make(
                 client_id: cancel_client_id,
                 order_flags: LONG_TERM_ORDER_FLAGS,
                 clob_pair_id,
-                good_til_block_time: cancel_good_til_block,
+                good_til_block_time: cancel_good_til_block_time,
             };
             let cancel_event = Event::new("cancelled_order")
                 .add_attribute("perp_id", subaccount_number.to_string())
                 .add_attribute("client_id", cancel_client_id.to_string())
                 .add_attribute("clob_pair_id", clob_pair_id.to_string())
-                .add_attribute("cancel_good_til_block", cancel_good_til_block.to_string());
+                .add_attribute("cancel_good_til_block_time", cancel_good_til_block_time.to_string());
             messages.push(cancel_msg);
             events.push(cancel_event);
         }

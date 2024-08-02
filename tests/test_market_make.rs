@@ -81,7 +81,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders: vec![new_order()],
                     cancel_client_ids: vec![],
-                    cancel_good_til_block: 0,
+                    cancel_good_til_block_time: 0,
                 },
                 &[],
             )
@@ -116,7 +116,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders: vec![new_order()],
                     cancel_client_ids: vec![],
-                    cancel_good_til_block: 0,
+                    cancel_good_til_block_time: 0,
                 },
                 &[],
             )
@@ -165,7 +165,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders: vec![new_order()],
                     cancel_client_ids: vec![],
-                    cancel_good_til_block: 0,
+                    cancel_good_til_block_time: 0,
                 },
                 &[],
             )
@@ -182,7 +182,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders: vec![],
                     cancel_client_ids: vec![CLIENT_ID],
-                    cancel_good_til_block: BLOCK_TIME,
+                    cancel_good_til_block_time: BLOCK_TIME,
                 },
                 &[],
             )
@@ -237,7 +237,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders: vec![new_order()],
                     cancel_client_ids: vec![],
-                    cancel_good_til_block: 0,
+                    cancel_good_til_block_time: 0,
                 },
                 &[],
             )
@@ -254,7 +254,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders: vec![],
                     cancel_client_ids: vec![CLIENT_ID],
-                    cancel_good_til_block: BLOCK_TIME,
+                    cancel_good_til_block_time: BLOCK_TIME,
                 },
                 &[],
             )
@@ -307,7 +307,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders,
                     cancel_client_ids: vec![],
-                    cancel_good_til_block: 0,
+                    cancel_good_til_block_time: 0,
                 },
                 &[],
             )
@@ -372,7 +372,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders,
                     cancel_client_ids: vec![],
-                    cancel_good_til_block: 0,
+                    cancel_good_til_block_time: 0,
                 },
                 &[],
             )
@@ -425,7 +425,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders,
                     cancel_client_ids: vec![],
-                    cancel_good_til_block: 0,
+                    cancel_good_til_block_time: 0,
                 },
                 &[],
             )
@@ -450,7 +450,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders: vec![],
                     cancel_client_ids: vec![CLIENT_ID, CLIENT_ID + 1],
-                    cancel_good_til_block: 0,
+                    cancel_good_til_block_time: 0,
                 },
                 &[],
             )
@@ -508,7 +508,7 @@ mod tests {
                 clob_pair_id: CLOB_PAIR_ID,
                 new_orders: vec![new_order()],
                 cancel_client_ids: vec![],
-                cancel_good_til_block: 0,
+                cancel_good_til_block_time: 0,
             },
             &[],
         );
@@ -546,7 +546,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders: vec![new_order()],
                     cancel_client_ids: vec![],
-                    cancel_good_til_block: 0,
+                    cancel_good_til_block_time: 0,
                 },
                 &[],
             )
@@ -607,7 +607,7 @@ mod tests {
                 clob_pair_id: CLOB_PAIR_ID,
                 new_orders: vec![new_order.clone()],
                 cancel_client_ids: vec![],
-                cancel_good_til_block: 0,
+                cancel_good_til_block_time: 0,
             },
             &[],
         );
@@ -634,7 +634,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders: vec![new_order],
                     cancel_client_ids: vec![],
-                    cancel_good_til_block: 0,
+                    cancel_good_til_block_time: 0,
                 },
                 &[],
             )
@@ -690,7 +690,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders: vec![new_order()],
                     cancel_client_ids: vec![],
-                    cancel_good_til_block: 0,
+                    cancel_good_til_block_time: 0,
                 },
                 &[],
             )
@@ -707,7 +707,7 @@ mod tests {
                     clob_pair_id: CLOB_PAIR_ID,
                     new_orders: orders2,
                     cancel_client_ids: vec![CLIENT_ID, CLIENT_ID + 1, CLIENT_ID + 2],
-                    cancel_good_til_block: 0,
+                    cancel_good_til_block_time: 0,
                 },
                 &[],
             )
@@ -754,7 +754,7 @@ mod tests {
         assert!(cancelled_events[0].attributes[2].value == "101");
         assert!(cancelled_events[0].attributes[3].key == "clob_pair_id");
         assert!(cancelled_events[0].attributes[3].value == "0");
-        assert!(cancelled_events[0].attributes[4].key == "cancel_good_til_block");
+        assert!(cancelled_events[0].attributes[4].key == "cancel_good_til_block_time");
         assert!(cancelled_events[0].attributes[4].value == "0");
 
         assert!(cancelled_events[1].attributes[1].key == "perp_id");
@@ -763,7 +763,7 @@ mod tests {
         assert!(cancelled_events[1].attributes[2].value == "102");
         assert!(cancelled_events[1].attributes[3].key == "clob_pair_id");
         assert!(cancelled_events[1].attributes[3].value == "0");
-        assert!(cancelled_events[1].attributes[4].key == "cancel_good_til_block");
+        assert!(cancelled_events[1].attributes[4].key == "cancel_good_til_block_time");
         assert!(cancelled_events[1].attributes[4].value == "0");
 
         assert!(cancelled_events[2].attributes[1].key == "perp_id");
@@ -772,7 +772,7 @@ mod tests {
         assert!(cancelled_events[2].attributes[2].value == "103");
         assert!(cancelled_events[2].attributes[3].key == "clob_pair_id");
         assert!(cancelled_events[2].attributes[3].value == "0");
-        assert!(cancelled_events[2].attributes[4].key == "cancel_good_til_block");
+        assert!(cancelled_events[2].attributes[4].key == "cancel_good_til_block_time");
         assert!(cancelled_events[2].attributes[4].value == "0");
     }
 }

@@ -66,7 +66,7 @@ pub enum ExecuteMsg {
         clob_pair_id: u32,
         new_orders: Vec<NewOrder>,
         cancel_client_ids: Vec<u32>,
-        cancel_good_til_block: u32,
+        cancel_good_til_block_time: u32,
     },
 }
 
@@ -220,7 +220,7 @@ mod tests {
                 conditional_order_trigger_subticks: 0,
             }],
             cancel_client_ids: vec![],
-            cancel_good_til_block: 0,
+            cancel_good_til_block_time: 0,
         };
 
         let serialized_msg = serde_json::to_string(&msg).unwrap();
@@ -234,7 +234,7 @@ mod tests {
             clob_pair_id: 0,
             new_orders: vec![],
             cancel_client_ids: vec![101],
-            cancel_good_til_block: 0,
+            cancel_good_til_block_time: 0,
         };
 
         let serialized_msg = serde_json::to_string(&msg).unwrap();

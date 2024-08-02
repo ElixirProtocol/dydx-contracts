@@ -92,7 +92,7 @@ pub fn execute(
             clob_pair_id,
             new_orders,
             cancel_client_ids,
-            cancel_good_til_block,
+            cancel_good_til_block_time,
         } => crate::execute::market_make::market_make(
             deps,
             env,
@@ -101,7 +101,7 @@ pub fn execute(
             clob_pair_id,
             new_orders,
             cancel_client_ids,
-            cancel_good_til_block,
+            cancel_good_til_block_time,
         )
         .map_err(Into::into),
     }
