@@ -1,7 +1,7 @@
 ## Why do we need to migrate?
 Currently, the integration smart contract is the "sender" of messages that place/cancel orders for a subaccount.
 This means that an `ExecuteMsg` call is necessary any time an Elixir-owned subaccount needs to manage its orders.
-Unfortunately, the gas costs associated with `ExecuteMsg` are much higher than a wallet-signed place or cancel. As such, dYdX will implement rate-limits that restrict how often an Elixir trader would be able to modify their orders.
+Unfortunately, the gas costs associated with `ExecuteMsg` are much higher than a wallet-signed place or cancel. As such, dYdX will implement rate-limits that restrict how often an Elixir trader would be able to send orders.
 
 However, dYdX is planning to add a feature called "permissioned keys" that will allow an appointed signer to place and cancel orders for a given subaccount. If the Elixir smart contract used this feature, it would be able to avoid the rate-limits on `ExecuteMsg` thus allowing Elixir to trade more frequently and on more markets. Migration is necessary to use a new version of the smart contract that supports permissioned keys.
 
