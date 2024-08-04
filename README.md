@@ -2,7 +2,7 @@
 
 [Getting Started](#startup) <br />
 [Contract Design](#design) <br />
-[Integration Tests](testing) 
+[Integration Tests](#testing) 
 
 <a name="startup"></a>
 <h2 align="center">Getting Started</h2>
