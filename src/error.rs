@@ -82,6 +82,9 @@ pub enum ContractError {
     #[error("Trader can only place at most 3 bids and 3 asks at a time")]
     CanOnlyPlaceThreeOrdersPerSide {},
 
+    #[error("Trader can only cancel at most 6 orders at a time")]
+    CanOnlyCancelSixOrderOrders {},
+
     #[error("Could not find LP tokens with perp_id: {perp_id} for {user}")]
     LpTokensNotFound { user: Addr, perp_id: u32 },
 

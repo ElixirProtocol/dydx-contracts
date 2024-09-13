@@ -114,7 +114,7 @@ pub fn lp_balance(
     Ok(LpTokenBalanceResponse { perp_id, balance })
 }
 
-/// Queries the metadata of the LP token for the specified perp market. 
+/// Queries the metadata of the LP token for the specified perp market.
 /// This includes the total token supply.
 pub fn lp_token_info(deps: Deps<DydxQueryWrapper>, perp_id: u32) -> StdResult<TokenInfoResponse> {
     let info = LP_TOKENS

@@ -12,6 +12,9 @@ use crate::query::query_dydx_position;
 use crate::state::VAULTS_BY_PERP_ID;
 use crate::{error::ContractError, state::STATE};
 
+const MAX_CANCEL_ORDERS: usize = 6;
+const MAX_NEW_ORDERS_PER_SIDE: usize = 6;
+
 #[cw_serde]
 pub struct NewOrder {
     pub client_id: u32,
@@ -101,6 +104,11 @@ pub fn market_make(
         return Err(ContractError::VaultNotInitialized { perp_id });
     }
 
+    // validate at most 6 cancelled orders
+    if cancel_client_ids.len() > MAX_CANCEL_ORDERS {
+        return Err(ContractError::CanOnlyCancelSixOrderOrders {});
+    }
+
     let mut messages = vec![];
     let mut events = vec![];
 
@@ -119,7 +127,10 @@ pub fn market_make(
                 .add_attribute("perp_id", subaccount_number.to_string())
                 .add_attribute("client_id", cancel_client_id.to_string())
                 .add_attribute("clob_pair_id", clob_pair_id.to_string())
-                .add_attribute("cancel_good_til_block_time", cancel_good_til_block_time.to_string());
+                .add_attribute(
+                    "cancel_good_til_block_time",
+                    cancel_good_til_block_time.to_string(),
+                );
             messages.push(cancel_msg);
             events.push(cancel_event);
         }
@@ -171,7 +182,7 @@ pub fn market_make(
     }
 
     // validate at most 3 orders per side
-    if num_bids > 3 || num_asks > 3 {
+    if num_bids > MAX_NEW_ORDERS_PER_SIDE || num_asks > MAX_NEW_ORDERS_PER_SIDE {
         return Err(ContractError::CanOnlyPlaceThreeOrdersPerSide {});
     }
     let asset_usdc_value = pos.asset_usdc_value.abs_diff(SignedDecimal::zero());

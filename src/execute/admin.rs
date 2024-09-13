@@ -10,7 +10,7 @@ use crate::{error::ContractError, state::STATE};
 use super::helpers::{validate_addr_string, verify_sender_is_trader};
 use super::USDC_DENOM;
 
-/// Set the permissioned trader. 
+/// Set the permissioned trader.
 /// Can only be called by the current trader.
 pub fn set_trader(
     deps: DepsMut<DydxQueryWrapper>,
@@ -37,9 +37,9 @@ pub fn set_trader(
     Ok(resp)
 }
 
-/// Creates a vault and the associated dYdX subaccount required for trading. 
+/// Creates a vault and the associated dYdX subaccount required for trading.
 /// Also creates an LP token and withdrawal queue for the vault.
-/// Vaults are unique for a dYdX perp market and as such use `perp_id` as their identifier throughout the contract. 
+/// Vaults are unique for a dYdX perp market and as such use `perp_id` as their identifier throughout the contract.
 pub fn create_vault(
     deps: DepsMut<DydxQueryWrapper>,
     env: Env,

@@ -17,7 +17,7 @@ use super::helpers::{
 };
 
 /// Processes a user to deposit into the market-making vault.
-/// This consists of minting LP tokens such that the % of LP tokens that 
+/// This consists of minting LP tokens such that the % of LP tokens that
 /// a user owns is the same as their % of deposit value in the pool.
 pub fn deposit_into_vault(
     deps: DepsMut<DydxQueryWrapper>,
@@ -25,7 +25,6 @@ pub fn deposit_into_vault(
     info: MessageInfo,
     perp_id: u32,
 ) -> ContractResult<Response<DydxMsg>> {
-
     let subaccount_id = get_contract_subaccount_id(&env, perp_id);
 
     // assert that user is depositing only USDC with amount > 0

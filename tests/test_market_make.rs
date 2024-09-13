@@ -468,6 +468,123 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Trader can only cancel at most 6 orders at a time")]
+    fn trader_can_only_cancel_6_orders() {
+        let (mut app, code_id, users) = test_setup();
+        let owner = users[0].clone();
+        let user1 = users[1].clone();
+        let deposit_amount = 10_000_000;
+
+        let app_addr = instantiate_contract_with_trader_and_vault(
+            &mut app,
+            code_id,
+            owner.clone(),
+            user1.clone(),
+        );
+
+        mint_native(
+            &mut app,
+            user1.to_string(),
+            USDC_COIN_TYPE.to_string(),
+            deposit_amount,
+        );
+
+        let _deposit_response = app
+            .execute_contract(
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::DepositIntoVault { perp_id: 0 },
+                &[Coin {
+                    denom: USDC_COIN_TYPE.to_string(),
+                    amount: Uint128::new(deposit_amount),
+                }],
+            )
+            .unwrap();
+
+        let mut new_orders = vec![new_order(), new_order(), new_order()];
+        new_orders[1].client_id += 1;
+        new_orders[2].client_id += 2;
+
+        let _place_response = app
+            .execute_contract(
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::MarketMake {
+                    subaccount_number: SUBACCOUNT_NUMBER,
+                    clob_pair_id: CLOB_PAIR_ID,
+                    new_orders,
+                    cancel_client_ids: vec![],
+                    cancel_good_til_block_time: 0,
+                },
+                &[],
+            )
+            .unwrap();
+
+        let mut new_orders = vec![new_order(), new_order(), new_order()];
+        new_orders[0].client_id = 3;
+        new_orders[1].client_id = 4;
+        new_orders[2].client_id = 5;
+
+        let _place_response = app
+            .execute_contract(
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::MarketMake {
+                    subaccount_number: SUBACCOUNT_NUMBER,
+                    clob_pair_id: CLOB_PAIR_ID,
+                    new_orders,
+                    cancel_client_ids: vec![],
+                    cancel_good_til_block_time: 0,
+                },
+                &[],
+            )
+            .unwrap();
+
+        let mut new_orders = vec![new_order(), new_order(), new_order()];
+        new_orders[0].client_id = 6;
+        new_orders[1].client_id = 7;
+        new_orders[2].client_id = 8;
+
+        let _place_response = app
+            .execute_contract(
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::MarketMake {
+                    subaccount_number: SUBACCOUNT_NUMBER,
+                    clob_pair_id: CLOB_PAIR_ID,
+                    new_orders,
+                    cancel_client_ids: vec![],
+                    cancel_good_til_block_time: 0,
+                },
+                &[],
+            )
+            .unwrap();
+
+        let _cancel_response = app
+            .execute_contract(
+                user1.clone(),
+                app_addr.clone(),
+                &ExecuteMsg::MarketMake {
+                    subaccount_number: SUBACCOUNT_NUMBER,
+                    clob_pair_id: CLOB_PAIR_ID,
+                    new_orders: vec![],
+                    cancel_client_ids: vec![
+                        CLIENT_ID,
+                        CLIENT_ID + 1,
+                        CLIENT_ID + 2,
+                        CLIENT_ID + 3,
+                        CLIENT_ID + 4,
+                        CLIENT_ID + 5,
+                        CLIENT_ID + 6,
+                    ],
+                    cancel_good_til_block_time: 0,
+                },
+                &[],
+            )
+            .unwrap();
+    }
+
+    #[test]
     fn placing_orders_fails_if_it_would_increase_leverage_over_1x() {
         let (mut app, code_id, users) = test_setup();
         let owner = users[0].clone();
