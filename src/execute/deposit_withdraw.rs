@@ -27,7 +27,6 @@ pub fn deposit_into_vault(
 ) -> ContractResult<Response<DydxMsg>> {
 
     let subaccount_id = get_contract_subaccount_id(&env, perp_id);
-    let amount = info.funds[0].amount;
 
     // assert that user is depositing only USDC with amount > 0
     if info.funds.len() != 1 {
@@ -38,6 +37,8 @@ pub fn deposit_into_vault(
             coin_type: info.funds[0].denom.clone(),
         });
     }
+
+    let amount = info.funds[0].amount;
     if amount <= Uint128::zero() {
         return Err(ContractError::InvalidDepositAmount {
             coin_type: info.funds[0].denom.clone(),
