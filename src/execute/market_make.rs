@@ -109,6 +109,11 @@ pub fn market_make(
         return Err(ContractError::CanOnlyCancelSixOrderOrders {});
     }
 
+    // NOOP
+    if cancel_client_ids.len() == 0 && new_orders.len() == 0 {
+        return
+    }
+
     let mut messages = vec![];
     let mut events = vec![];
 
